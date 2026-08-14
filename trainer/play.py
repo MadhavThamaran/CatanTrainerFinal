@@ -1,0 +1,330 @@
+"""Play-vs-bot mode: live games against the champion net-guided engine.
+
+Sessions hold a real `GameState`; the human sees the observation-level
+view (the bot's hand stays server-side). The bot is an `MCTSEngine` with
+the champion checkpoint, fed observations through the normal Agent hooks
+so its CardTracker keeps exact beliefs about the human's hand — the same
+machinery it uses in gated matches.
+
+Turn loop: after every human action the service auto-plays everything that
+is not a human decision — the bot's whole turn and any forced single-action
+steps for the human (dice rolls) — and returns the next real decision
+point plus an event log of what happened in between.
+
+Discards are the one action the codec cannot express: when the human must
+discard, the payload carries {"discard": {"count": k}} and the client
+submits a resource multiset instead of a codec id.
+"""
+from __future__ import annotations
+
+import json
+import random
+import threading
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
+
+from engine import (
+    Action, ActionType, GameState, Phase, Resource,
+    apply_action, legal_actions, new_game,
+)
+from net.codec import encode_action
+from search import MCTSEngine
+
+from .actions import describe_move
+from .layout import LAYOUT
+from .service import board_state, context
+
+_MAX_SESSIONS = 8
+_MAX_ACTIONS = 6000
+
+
+_GAMES_DIR = Path("data/games")
+
+
+def action_to_dict(a: Action) -> dict:
+    """Faithful serialization of the frozen Action (REVIEW_SPEC §2a)."""
+    d = {"type": a.type.name, "player": a.player}
+    for f in ("vertex", "edge", "hex"):
+        if getattr(a, f) is not None:
+            d[f] = getattr(a, f)
+    if a.give is not None:
+        d["give"] = a.give.value
+    if a.get is not None:
+        d["get"] = a.get.value
+    if a.resources is not None:
+        d["resources"] = [r.value for r in a.resources]
+    return d
+
+
+def action_from_dict(d: dict) -> Action:
+    return Action(
+        ActionType[d["type"]],
+        d["player"],
+        vertex=d.get("vertex"),
+        edge=d.get("edge"),
+        hex=d.get("hex"),
+        give=Resource(d["give"]) if "give" in d else None,
+        get=Resource(d["get"]) if "get" in d else None,
+        resources=tuple(Resource(r) for r in d["resources"])
+        if "resources" in d
+        else None,
+    )
+
+
+def _gained(before: dict, after: dict) -> dict:
+    """Positive per-resource delta, as {resource_name: n}."""
+    out = {}
+    for r, n in after.items():
+        d = n - before.get(r, 0)
+        if d > 0:
+            out[r.value] = d
+    return out
+
+
+def _label(action, state: GameState, actor: int) -> str:
+    cid = encode_action(action)
+    if cid is not None:
+        return describe_move(cid, state, actor)["label"]
+    if action.type is ActionType.DISCARD:
+        counts = Counter(r.value for r in action.resources)
+        return "Discard " + ", ".join(f"{n} {r}" for r, n in sorted(counts.items()))
+    return action.type.name.replace("_", " ").title()
+
+
+class PlaySession:
+    def __init__(self, sid: str, seed: int, net_path: str, sims: int, dets: int):
+        self.sid = sid
+        self.seed = seed
+        self.net_path = net_path
+        self.log: list[dict] = []      # replayable record (REVIEW_SPEC §2a)
+        self._persisted = False
+        self.state = new_game(seed)
+        self.human = seed % 2          # alternate seats across seeds
+        self.bot_seat = 1 - self.human
+        net = None
+        if net_path is not None:
+            from net.evaluator import get_evaluator
+
+            net = get_evaluator(net_path)
+        self.bot = MCTSEngine(
+            simulations=sims,
+            determinizations=dets,
+            seed=seed * 31 + 7,
+            net=net,
+        )
+        self.bot.begin_game(self.bot_seat)
+        self.events: list[dict] = []
+        self.n_actions = 0
+
+    # --- turn loop ---
+
+    def _apply(self, action, who: str) -> None:
+        actor = self.state.player_to_act()
+        label = _label(action, self.state, actor)
+        h_before = dict(self.state.players[self.human].resources)
+        b_before = dict(self.state.players[self.bot_seat].resources)
+        apply_action(self.state, action)
+        self.bot.observe(self.state, action)
+        ev = {"who": who, "label": label}
+        mine = actor == self.human
+        # Board mutations ride on the event so the client can animate the
+        # board piece-by-piece during playback instead of snapping at the end.
+        if action.type in (
+            ActionType.SETUP_PLACE_SETTLEMENT, ActionType.BUILD_SETTLEMENT
+        ):
+            ev["place"] = {"kind": "settlement", "vertex": action.vertex, "mine": mine}
+        elif action.type is ActionType.BUILD_CITY:
+            ev["place"] = {"kind": "city", "vertex": action.vertex, "mine": mine}
+        elif action.type in (ActionType.SETUP_PLACE_ROAD, ActionType.BUILD_ROAD):
+            ev["place"] = {"kind": "road", "edge": action.edge, "mine": mine}
+        elif action.type is ActionType.MOVE_ROBBER:
+            ev["robber"] = action.hex
+        if action.type is ActionType.ROLL:
+            ev["roll"] = self.state.last_roll
+            # Production is public information: both players' roll gains
+            # are announced (the client animates them).
+            ev["you_gain"] = _gained(h_before, self.state.players[self.human].resources)
+            ev["bot_gain"] = _gained(b_before, self.state.players[self.bot_seat].resources)
+        else:
+            # The human always sees their own hand change (steals, monopoly,
+            # build costs, trades); the bot's non-roll changes stay counts.
+            h_after = self.state.players[self.human].resources
+            gain = _gained(h_before, h_after)
+            lose = _gained(h_after, h_before)
+            if gain:
+                ev["you_gain"] = gain
+            if lose:
+                ev["you_lose"] = lose
+        self.events.append(ev)
+        self.log.append({"actor": actor, "action": action_to_dict(action)})
+        self.n_actions += 1
+        if self.state.phase is Phase.GAME_OVER:
+            self._persist()
+
+    def _persist(self) -> None:
+        """Write the replayable game record (feeds post-game review)."""
+        if self._persisted:
+            return
+        self._persisted = True
+        _GAMES_DIR.mkdir(parents=True, exist_ok=True)
+        record = {
+            "sid": self.sid,
+            "seed": self.seed,
+            "human": self.human,
+            "bot": self.net_path,
+            "log": self.log,
+            "winner": self.state.winner,
+            "final_vp": [self.state.total_vp(0), self.state.total_vp(1)],
+            "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+        (_GAMES_DIR / f"{self.sid}.json").write_text(json.dumps(record))
+
+    def advance(self) -> None:
+        """Play until the human faces a real decision or the game ends."""
+        while (
+            self.state.phase is not Phase.GAME_OVER
+            and self.n_actions < _MAX_ACTIONS
+        ):
+            actor = self.state.player_to_act()
+            actions = legal_actions(self.state)
+            if actor == self.human:
+                # Auto-play forced steps (rolls, a lone forced road) — but
+                # NEVER auto-end the human's turn: even with nothing to do,
+                # ending it is theirs (colonist-style agency).
+                if len(actions) == 1 and actions[0].type is not ActionType.END_TURN:
+                    self._apply(actions[0], "you")
+                    continue
+                return  # human decision point
+            self._apply(
+                actions[0] if len(actions) == 1
+                else self.bot.select_action(self.state),
+                "bot",
+            )
+
+    # --- human actions ---
+
+    def act_codec(self, codec_id: int) -> bool:
+        for a in legal_actions(self.state):
+            if encode_action(a) == codec_id:
+                self._apply(a, "you")
+                return True
+        return False
+
+    def act_discard(self, resources: list[str]) -> bool:
+        want = Counter(resources)
+        for a in legal_actions(self.state):
+            if a.type is ActionType.DISCARD and Counter(
+                r.value for r in a.resources
+            ) == want:
+                self._apply(a, "you")
+                return True
+        return False
+
+    # --- presentation ---
+
+    def view(self) -> dict:
+        st = self.state
+        over = st.phase is Phase.GAME_OVER or self.n_actions >= _MAX_ACTIONS
+        if over:
+            self._persist()   # covers action-cap draws too
+        events, self.events = self.events, []   # drain: each event ships once
+        payload = {
+            "session": self.sid,
+            "game_over": over,
+            "winner": (
+                None if not over
+                else "you" if st.winner == self.human
+                else "bot" if st.winner == self.bot_seat
+                else "draw"
+            ),
+            "your_seat": self.human,
+            "layout": LAYOUT,
+            "board": board_state(st, self.human),
+            "context": context(st, self.human),
+            "events": events,
+            "moves": [],
+            "discard": None,
+            "prompt": "Game over." if over else "Your move.",
+        }
+        if over:
+            return payload
+        actions = legal_actions(st)
+        if actions[0].type is ActionType.DISCARD:
+            k = st.players[self.human].hand_size() // 2
+            payload["discard"] = {"count": k}
+            payload["prompt"] = f"Rolled 7 — discard {k} cards."
+            return payload
+        payload["moves"] = sorted(
+            (
+                describe_move(encode_action(a), st, self.human)
+                for a in actions
+                if encode_action(a) is not None
+            ),
+            key=lambda d: d["codec_id"],
+        )
+        if st.phase is Phase.SETUP:
+            kind = actions[0].type
+            payload["prompt"] = (
+                "Setup: place a settlement."
+                if kind is ActionType.SETUP_PLACE_SETTLEMENT
+                else "Setup: place its road."
+            )
+        elif actions[0].type is ActionType.MOVE_ROBBER:
+            payload["prompt"] = "Move the robber."
+        elif st.free_roads > 0:
+            payload["prompt"] = "Road Building: place your free road."
+        return payload
+
+
+class PlayService:
+    def __init__(
+        self,
+        net_path: str = "checkpoints/gen7.pt",
+        sims: int = 160,
+        dets: int = 4,
+    ):
+        self.net_path = net_path
+        self.sims = sims
+        self.dets = dets
+        self._sessions: dict[str, PlaySession] = {}
+        self._lock = threading.Lock()
+        self._rng = random.Random()
+
+    def new_game(self, seed: int | None = None) -> dict:
+        with self._lock:
+            if seed is None:
+                seed = self._rng.randrange(300_000, 400_000)
+            sid = f"g{seed}-{self._rng.randrange(1 << 30):08x}"
+            s = PlaySession(sid, seed, self.net_path, self.sims, self.dets)
+            self._sessions[sid] = s
+            while len(self._sessions) > _MAX_SESSIONS:
+                self._sessions.pop(next(iter(self._sessions)))
+            s.advance()
+            return s.view()
+
+    def act(
+        self,
+        sid: str,
+        codec_id: int | None = None,
+        discard: list[str] | None = None,
+    ) -> dict:
+        with self._lock:
+            s = self._sessions.get(sid)
+            if s is None:
+                return {"error": "unknown or expired session — start a new game"}
+            if s.state.phase is Phase.GAME_OVER:
+                return {"error": "game is over"}
+            if s.state.player_to_act() != s.human:
+                return {"error": "not your turn"}
+            ok = (
+                s.act_discard(discard) if discard is not None
+                else s.act_codec(int(codec_id)) if codec_id is not None
+                else False
+            )
+            if not ok:
+                v = s.view()
+                v["illegal"] = True
+                return v
+            s.advance()
+            return s.view()

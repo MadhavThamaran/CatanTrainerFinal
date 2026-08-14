@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Catan Tactics Trainer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: #2b7fc0; overflow: hidden;
+         font: 15px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; color: #2d2418; }
+  #app { display: flex; height: 100vh; }
+  #boardside { flex: 1; height: 100vh; overflow: hidden; display: flex;
+               flex-direction: column; align-items: center;
+               justify-content: flex-start; position: relative; padding: 8px 0 0; }
+  #topbadges { position: absolute; top: 12px; left: 16px; display: flex; gap: 8px; z-index: 5; }
+  .tbadge { background: rgba(255,255,255,.88); border-radius: 999px; padding: 4px 14px;
+            font-size: 13px; font-weight: 700; color: #35506b; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+  .modebtn { border: 2px solid transparent; cursor: pointer; font: inherit; }
+  .modebtn.active { border-color: #2563eb; color: #2563eb; }
+  #gamelog { display: none; }
+  #loglines { max-height: 230px; overflow-y: auto; font-size: 13px; }
+  #loglines div { padding: 2px 0; border-bottom: 1px solid #efe7cf; }
+  #newgame { margin-top: 8px; width: 100%; background: #2563eb; border: none; color: #fff;
+             font-size: 14px; font-weight: 800; padding: 9px; border-radius: 9px; cursor: pointer; }
+  svg { display: block; }
+  /* The board lives in a shrinkable flex cell so the prompt / action /
+     submit strip below it can NEVER be pushed off-screen — the board
+     scales down instead (it has a viewBox, so it letterboxes cleanly). */
+  #boardwrap { flex: 1 1 0; min-height: 0; width: 100%; display: flex;
+               align-items: center; justify-content: center; }
+  #board { width: 100%; height: 100%; max-width: 800px; }
+  #prompt { display: flex; align-items: center; gap: 10px; background: #f7f1df;
+            border-radius: 12px; padding: 6px 18px 6px 8px; font-size: 15px; font-weight: 800;
+            color: #4a3b23; box-shadow: 0 3px 10px rgba(0,0,0,.35); margin: 4px 0 6px; }
+  #prompt .av { width: 32px; height: 32px; border-radius: 50%; background: #2563eb;
+                display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  /* action bar */
+  #actionbar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+               padding: 0 16px; max-width: 760px; }
+  .actbtn { display: flex; flex-direction: column; align-items: center; gap: 1px;
+            background: #eaf3fb; border: 2px solid #b8cfe4; border-radius: 11px;
+            width: 72px; padding: 5px 4px; font-size: 11px; font-weight: 700; color: #35506b;
+            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,.2); }
+  .actbtn .ic { font-size: 19px; }
+  .actbtn:hover:not(:disabled) { border-color: #2563eb; }
+  .actbtn.active { background: #2563eb; color: #fff; border-color: #1b4bb8; }
+  .actbtn:disabled { opacity: .45; cursor: default; }
+  /* picker */
+  #picker { display: none; background: #f7f1df; border-radius: 12px; padding: 10px 14px;
+            margin-top: 8px; box-shadow: 0 3px 10px rgba(0,0,0,.3); max-width: 560px; }
+  #picker .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+  #picker .lbl { font-size: 12px; font-weight: 800; color: #8a7a58; width: 54px; }
+  .respick { width: 40px; height: 40px; border-radius: 9px; border: 2px solid rgba(0,0,0,.2);
+             font-size: 20px; display: flex; align-items: center; justify-content: center;
+             cursor: pointer; }
+  .respick.sel { outline: 3px solid #2563eb; }
+  .respick:hover { transform: translateY(-1px); }
+  /* staged bar */
+  #stagedbar { display: flex; align-items: center; gap: 10px; margin: 8px 0 6px;
+               background: #f7f1df; border-radius: 12px; padding: 6px 8px 6px 16px;
+               box-shadow: 0 3px 10px rgba(0,0,0,.3); min-height: 46px; }
+  #stagedlabel { font-weight: 700; color: #5d4f33; }
+  #stagedlabel b { color: #2d2418; }
+  #submit { background: #16a34a; border: none; color: #fff; font-size: 15px; font-weight: 800;
+            padding: 11px 22px; border-radius: 10px; cursor: pointer; box-shadow: 0 3px 8px rgba(0,0,0,.25); }
+  #submit:disabled { background: #9aa0a6; cursor: default; }
+  #clear { background: none; border: none; color: #8a7a58; font-size: 20px; cursor: pointer; }
+  /* sidebar */
+  #side { width: 400px; background: #cfe0ec; padding: 12px; display: flex;
+          flex-direction: column; gap: 10px; overflow-y: auto; }
+  .card { background: #f7f1df; border-radius: 14px; padding: 13px 15px;
+          box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+  .card h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase;
+             letter-spacing: .6px; color: #8a7a58; }
+  #hand { display: flex; gap: 7px; flex-wrap: wrap; }
+  .rescard { position: relative; width: 44px; height: 58px; border-radius: 9px;
+             display: flex; align-items: center; justify-content: center; font-size: 24px;
+             border: 2.5px solid rgba(0,0,0,.25); box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+  .rescard .n { position: absolute; top: -7px; right: -7px; background: #35506b; color: #fff;
+             font-size: 12px; font-weight: 800; border-radius: 999px; padding: 1px 7px;
+             border: 2px solid #fff; }
+  .prow { display: flex; align-items: center; gap: 10px; background: #e9e2cd;
+          border-radius: 12px; padding: 9px 12px; }
+  .prow.me { outline: 3px solid #2563eb44; }
+  .pav { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center;
+         justify-content: center; font-size: 22px; color: #fff; flex-shrink: 0;
+         border: 3px solid rgba(0,0,0,.25); }
+  .pname { font-weight: 800; font-size: 15px; }
+  .psub { font-size: 12px; color: #8a7a58; }
+  .pstats { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+  .pstat { text-align: center; font-size: 11px; color: #6b5d40; font-weight: 700; }
+  .pstat b { display: block; font-size: 16px; color: #2d2418; }
+  .award { opacity: .25; } .award.held { opacity: 1; }
+  #result { display: none; }
+  #points { font-size: 40px; font-weight: 900; margin: 0 0 6px; }
+  #explain { font-size: 14px; color: #5d4f33; margin: 4px 0 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #e2d7b8; }
+  th { color: #8a7a58; font-weight: 700; }
+  tr.best td { color: #15803d; font-weight: 800; }
+  tr.chosen td { background: #dbe7f7; }
+  #next { margin-top: 12px; width: 100%; background: #2563eb; border: none; color: #fff;
+          font-size: 15px; font-weight: 800; padding: 12px; border-radius: 10px; cursor: pointer;
+          box-shadow: 0 3px 8px rgba(0,0,0,.25); }
+  .target { cursor: pointer; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .pulse { animation: pulse 1.5s infinite; }
+  /* play-mode event playback fx */
+  #fxlayer { position: absolute; inset: 0; pointer-events: none; z-index: 9; }
+  .diceflash { position: absolute; top: 13%; left: 50%; font-size: 46px; font-weight: 900;
+               color: #2d2418; background: rgba(255,255,255,.94); border-radius: 18px;
+               padding: 8px 26px; box-shadow: 0 6px 18px rgba(0,0,0,.35);
+               animation: dicepop 1.3s ease-out forwards; }
+  @keyframes dicepop {
+    0%   { opacity: 0; transform: translateX(-50%) scale(.55); }
+    14%  { opacity: 1; transform: translateX(-50%) scale(1.1); }
+    24%  { transform: translateX(-50%) scale(1); }
+    78%  { opacity: 1; }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(1); }
+  }
+  .gainchip { position: absolute; font-size: 15px; font-weight: 800; color: #2d2418;
+              background: #f7f1df; border-radius: 999px; padding: 5px 14px;
+              box-shadow: 0 3px 9px rgba(0,0,0,.3); border: 2.5px solid transparent;
+              animation: chiprise 1.6s ease-out forwards; opacity: 0; white-space: nowrap; }
+  @keyframes chiprise {
+    0%   { opacity: 0; transform: translateY(16px) scale(.8); }
+    12%  { opacity: 1; transform: translateY(0) scale(1.06); }
+    22%  { transform: translateY(0) scale(1); }
+    72%  { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-48px); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="boardside">
+    <div id="topbadges">
+      <button class="tbadge modebtn active" id="mode-trainer" onclick="switchMode('trainer')">🧩 Trainer</button>
+      <button class="tbadge modebtn" id="mode-play" onclick="switchMode('play')">⚔️ Play the bot</button>
+      <span class="tbadge" id="counter">puzzle 0</span>
+      <span class="tbadge" id="pinfo">–</span>
+    </div>
+    <div id="boardwrap"><svg id="board"></svg></div>
+    <div id="fxlayer"></div>
+    <div id="prompt"><span class="av">👤</span><span id="prompttext">Loading…</span></div>
+    <div id="actionbar"></div>
+    <div id="picker"></div>
+    <div id="stagedbar">
+      <span id="stagedlabel">Pick an action, then Submit.</span>
+      <button id="clear" title="clear" onclick="clearStaged()" style="margin-left:auto">✕</button>
+      <button id="submit" disabled onclick="submitStaged()">Submit action</button>
+    </div>
+  </div>
+  <div id="side">
+    <div class="card">
+      <h3>Your hand</h3>
+      <div id="hand"></div>
+    </div>
+    <div class="prow" id="opprow"></div>
+    <div class="prow me" id="merow"></div>
+    <div class="card" id="gamelog">
+      <h3>Game log</h3>
+      <div id="loglines"></div>
+      <button id="newgame" onclick="loadGame()">🔄 New game</button>
+    </div>
+    <div class="card" id="result">
+      <div id="points"></div>
+      <div id="explain"></div>
+      <table><thead><tr><th>#</th><th>Move</th><th>Win %</th><th>Pts</th></tr></thead>
+      <tbody id="table"></tbody></table>
+      <button id="next" onclick="loadNext()">Next puzzle →</button>
+    </div>
+  </div>
+</div>
+<script>
+function showFatal(text) {
+  let el = document.getElementById("fatal");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "fatal";
+    el.style.cssText = "position:fixed;top:0;left:0;right:0;background:#7f1d1d;color:#fff;" +
+      "padding:10px 22px;font:13px/1.4 monospace;white-space:pre-wrap;z-index:99";
+    document.body.prepend(el);
+  }
+  el.textContent = "Trainer error — please report this:\n" + text;
+}
+window.onerror = (msg, src, line, col) => { showFatal(`${msg} @ ${line}:${col}`); };
+window.addEventListener("unhandledrejection", e => showFatal(String(e.reason)));
+
+const HEXFILL = { forest:"#1e8a3e", hills:"#d95f2b", pasture:"#94ce4a",
+                  fields:"#eeb33c", mountains:"#a2a8a5", desert:"#e3d3a2" };
+const HEXICON = { forest:"🌲", hills:"🧱", pasture:"🐑", fields:"🌾",
+                  mountains:"🪨", desert:"🌵" };
+const RESICON = { wood:"🌲", brick:"🧱", sheep:"🐑", wheat:"🌾", ore:"🪨" };
+const RESFILL = { wood:"#7cbf4a", brick:"#e0854f", sheep:"#c8e59a",
+                  wheat:"#f2c14e", ore:"#b9c0c4" };
+const DEVICON = { knight:"⚔️", victory_point:"🏆", road_building:"🛤",
+                  year_of_plenty:"🎁", monopoly:"🎩" };
+const RESLIST = ["wood","brick","sheep","wheat","ore"];
+const PIPS = {2:1,3:2,4:3,5:4,6:5,8:5,9:4,10:3,11:2,12:1};
+const YOU = "#2563eb", OPP = "#e0442d", GOLD = "#f5c211", GOOD = "#15803d";
+
+// Action categories -> bar metadata + how the target is composed.
+const CATS = {
+  setup_settlement: {ic:"🏠", label:"Settlement", kind:"vertex"},
+  setup_road:       {ic:"🛣", label:"Road",       kind:"edge"},
+  free_road:        {ic:"🛣", label:"Free road",  kind:"edge"},
+  build_road:       {ic:"🛣", label:"Road",       kind:"edge"},
+  build_settlement: {ic:"🏠", label:"Settlement", kind:"vertex"},
+  build_city:       {ic:"🏙", label:"City",       kind:"vertex"},
+  robber:           {ic:"🥷", label:"Robber",     kind:"hex"},
+  trade:            {ic:"🔁", label:"Trade",      kind:"trade"},
+  buy_dev:          {ic:"🛒", label:"Buy dev",    kind:"instant"},
+  knight:           {ic:"⚔️", label:"Knight",     kind:"instant"},
+  road_building:    {ic:"🛤", label:"Rd Building", kind:"instant"},
+  year_of_plenty:   {ic:"🎁", label:"Yr Plenty",  kind:"pairpick"},
+  monopoly:         {ic:"🎩", label:"Monopoly",   kind:"respick"},
+  roll:             {ic:"🎲", label:"Roll",       kind:"instant"},
+  end_turn:         {ic:"⏭", label:"End turn",   kind:"instant"},
+};
+const CAT_ORDER = ["setup_settlement","setup_road","build_road","free_road",
+  "build_settlement","build_city","robber","trade","buy_dev","knight",
+  "road_building","year_of_plenty","monopoly","roll","end_turn"];
+
+let PZ = null, count = 0, locked = false;
+let mode = null, staged = null, stagedRoad = null, movesByCat = {};
+let APP_MODE = "trainer";       // "trainer" | "play"
+let discardPick = [];           // play mode: resources chosen for a 7-discard
+
+function switchMode(m) {
+  if (m === APP_MODE) return;
+  APP_MODE = m;
+  document.getElementById("mode-trainer").classList.toggle("active", m === "trainer");
+  document.getElementById("mode-play").classList.toggle("active", m === "play");
+  document.getElementById("gamelog").style.display = m === "play" ? "block" : "none";
+  document.getElementById("pinfo").style.display = m === "play" ? "none" : "";
+  document.getElementById("loglines").innerHTML = "";
+  if (m === "play") loadGame(); else loadNext();
+}
+
+const S = (tag, attrs, parent) => {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  parent.appendChild(el); return el;
+};
+const scalePts = (ids, V, cx, cy, k) =>
+  ids.map(id => `${cx + (V[id].x - cx) * k},${cy + (V[id].y - cy) * k}`).join(" ");
+const emojify = s => s.replace(/\b(wood|brick|sheep|wheat|ore)\b/g, m => `${RESICON[m]} ${m}`);
+
+async function loadNext() {
+  let r;
+  for (let attempt = 0; attempt < 3; attempt++) {   // survive transient hiccups
+    try { r = await fetch("/api/next"); break; }
+    catch (e) { if (attempt === 2) { showFatal(`/api/next -> ${e}`); return; }
+                await new Promise(res => setTimeout(res, 250)); }
+  }
+  if (!r.ok) { showFatal(`/api/next -> HTTP ${r.status}: ${await r.text()}`); return; }
+  PZ = await r.json();
+  if (PZ.error) { showFatal(`/api/next -> ${PZ.error}`); return; }
+  count++; locked = false; mode = null; staged = null; stagedRoad = null;
+  movesByCat = {};
+  for (const m of PZ.moves) (movesByCat[m.category] ||= []).push(m);
+  document.getElementById("counter").textContent = "puzzle " + count;
+  document.getElementById("pinfo").textContent =
+    `${PZ.difficulty} ${PZ.phase} · puzzle rating ${PZ.puzzle_rating.toFixed(0)}`;
+  document.getElementById("prompttext").textContent = PZ.prompt;
+  document.getElementById("result").style.display = "none";
+  document.getElementById("picker").style.display = "none";
+  // showResult() hides the staged bar; every new puzzle must bring it back.
+  document.getElementById("stagedbar").style.display = "flex";
+  renderSide(); renderActionBar(); renderBoard(); renderStaged();
+  // Single available action type -> activate it so the board is ready.
+  const cats = Object.keys(movesByCat);
+  if (cats.length === 1) activateMode(cats[0]);
+}
+
+/* ---- play mode ---- */
+
+async function loadGame() {
+  document.getElementById("prompttext").textContent = "Setting up the board…";
+  document.getElementById("loglines").innerHTML = "";
+  const r = await fetch("/api/play/new");
+  const v = await r.json();
+  if (v.error) { showFatal(`/api/play/new -> ${v.error}`); return; }
+  applyPlayView(v);
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function applyPlayView(v) {
+  // Paced playback: the engine answers instantly, but each event gets its
+  // moment — the log line, a dice flash, resource-gain chips — before the
+  // board snaps to the new position. Bot turns get >= 2s of screen time.
+  const evs = v.events || [];
+  if (evs.length) {
+    locked = true; mode = null; staged = null; stagedRoad = null;
+    renderActionBar();
+    // Fresh game: play the setup out on an EMPTY board (PZ is stale or from
+    // a previous game); otherwise continue from the board we're showing.
+    if (!PZ || PZ.session !== v.session) {
+      PZ = { ...v, board: { ...v.board, buildings: {}, roads: {} } };
+      renderSide(); renderBoard();
+    }
+    const t0 = Date.now();
+    const hasBot = evs.some(e => e.who === "bot");
+    for (const ev of evs) {
+      appendEvents([ev]);
+      document.getElementById("prompttext").textContent =
+        (ev.who === "bot" ? "🤖 " : "👤 ") + ev.label +
+        (ev.roll != null ? ` → ${ev.roll}` : "");
+      if (ev.place) {
+        if (ev.place.kind === "road")
+          PZ.board.roads[String(ev.place.edge)] = { mine: ev.place.mine };
+        else
+          PZ.board.buildings[String(ev.place.vertex)] =
+            { mine: ev.place.mine, kind: ev.place.kind };
+        renderBoard();
+      } else if (ev.robber !== undefined) {
+        for (const h of PZ.board.hexes) h.robber = h.id === ev.robber;
+        renderBoard();
+      }
+      spawnFx(ev);
+      await sleep(ev.who === "bot" ? 850 : 450);
+    }
+    if (hasBot) {
+      const elapsed = Date.now() - t0;
+      if (elapsed < 2000) await sleep(2000 - elapsed);
+    }
+    if (APP_MODE !== "play") return;  // user switched modes mid-playback
+  }
+  applyPlayNow(v);
+}
+
+function spawnFx(ev) {
+  const layer = document.getElementById("fxlayer");
+  if (ev.roll != null) {
+    const d = document.createElement("div");
+    d.className = "diceflash";
+    d.textContent = `🎲 ${ev.roll}`;
+    layer.appendChild(d);
+    setTimeout(() => d.remove(), 1400);
+  }
+  let slot = 0;
+  const chip = (html, color, x) => {
+    const c = document.createElement("div");
+    c.className = "gainchip";
+    c.style.borderColor = color;
+    c.style.left = x;
+    c.style.top = `${26 + slot * 8}%`;
+    c.style.animationDelay = `${slot * 120}ms`;
+    c.innerHTML = html;
+    layer.appendChild(c);
+    setTimeout(() => c.remove(), 1800 + slot * 120);
+    slot++;
+  };
+  for (const [r, n] of Object.entries(ev.you_gain || {}))
+    chip(`👤 +${n} ${RESICON[r]}`, YOU, "56%");
+  for (const [r, n] of Object.entries(ev.you_lose || {}))
+    chip(`👤 −${n} ${RESICON[r]}`, "#b91c1c", "56%");
+  for (const [r, n] of Object.entries(ev.bot_gain || {}))
+    chip(`🤖 +${n} ${RESICON[r]}`, OPP, "34%");
+}
+
+function applyPlayNow(v) {
+  PZ = v; locked = false; mode = null; staged = null; stagedRoad = null;
+  discardPick = [];
+  movesByCat = {};
+  for (const m of v.moves) (movesByCat[m.category] ||= []).push(m);
+  document.getElementById("counter").textContent = "you vs the engine";
+  document.getElementById("result").style.display = "none";
+  document.getElementById("picker").style.display = "none";
+  document.getElementById("stagedbar").style.display = "flex";
+  document.getElementById("prompttext").textContent =
+    v.game_over
+      ? (v.winner === "you" ? "🏆 You win!" :
+         v.winner === "bot" ? "🤖 The engine wins." : "Draw.")
+      : v.prompt;
+  renderSide(); renderActionBar(); renderBoard(); renderStaged();
+  if (v.game_over) { locked = true; renderActionBar(); return; }
+  if (v.discard) { buildDiscardPicker(); return; }
+  const cats = Object.keys(movesByCat);
+  // Auto-activate a lone category so the board lights up — but never an
+  // "instant" one in play mode: those PLAY on activation (auto-ending the
+  // turn without the user touching anything).
+  if (cats.length === 1 && CATS[cats[0]].kind !== "instant") activateMode(cats[0]);
+}
+
+function appendEvents(events) {
+  if (!events || !events.length) return;
+  const box = document.getElementById("loglines");
+  for (const ev of events) {
+    const d = document.createElement("div");
+    const who = ev.who === "bot" ? "🤖" : "👤";
+    d.innerHTML = `${who} ${emojify(ev.label)}` +
+      (ev.roll !== undefined && ev.roll !== null ? ` → <b>${ev.roll}</b>` : "");
+    box.appendChild(d);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+function buildDiscardPicker() {
+  const picker = document.getElementById("picker");
+  const need = PZ.discard.count;
+  function redraw() {
+    picker.innerHTML = `<div class="row"><span class="lbl">Discard</span>
+      <span style="font-size:12px;color:#8a7a58">${discardPick.length}/${need} —
+      click your cards</span></div><div class="row" id="drow"></div>`;
+    const row = picker.querySelector("#drow");
+    const left = { ...PZ.context.resources };
+    for (const r of discardPick) left[r]--;
+    for (const res of RESLIST) {
+      for (let i = 0; i < (PZ.context.resources[res] || 0); i++) {
+        const picked = i >= left[res];
+        const btn = resButton(res, () => {
+          if (picked) discardPick.splice(discardPick.indexOf(res), 1);
+          else if (discardPick.length < need) discardPick.push(res);
+          redraw();
+        }, picked);
+        row.appendChild(btn);
+      }
+    }
+    const lbl = document.getElementById("stagedlabel");
+    const btn = document.getElementById("submit");
+    if (discardPick.length === need) {
+      lbl.innerHTML = `Discarding: ${discardPick.map(r => RESICON[r]).join(" ")}`;
+      btn.disabled = locked;
+    } else {
+      lbl.textContent = `Pick ${need - discardPick.length} more to discard.`;
+      btn.disabled = true;
+    }
+  }
+  redraw();
+  picker.style.display = "block";
+  document.getElementById("submit").style.display = "";
+}
+
+async function playAct(body) {
+  locked = true;
+  document.getElementById("submit").disabled = true;
+  document.getElementById("prompttext").textContent = "🤖 Engine is thinking…";
+  const r = await fetch("/api/play/act", { method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session: PZ.session, ...body }) });
+  const v = await r.json();
+  if (v.error) { showFatal(`/api/play/act -> ${v.error}`); return; }
+  applyPlayView(v);
+}
+
+function renderSide() {
+  const hand = document.getElementById("hand"); hand.innerHTML = "";
+  let any = false;
+  for (const [res, n] of Object.entries(PZ.context.resources)) {
+    if (!n) continue; any = true;
+    const c = document.createElement("div"); c.className = "rescard";
+    c.style.background = RESFILL[res];
+    c.innerHTML = `${RESICON[res]}<span class="n">${n}</span>`;
+    c.title = `${res} ×${n}`; hand.appendChild(c);
+  }
+  for (const [card, n] of Object.entries(PZ.context.dev_cards)) {
+    any = true;
+    const c = document.createElement("div"); c.className = "rescard";
+    c.style.background = "#b9a7e6";
+    c.innerHTML = `${DEVICON[card] || "🃏"}<span class="n">${n}</span>`;
+    c.title = `${card.replace(/_/g, " ")} ×${n}`; hand.appendChild(c);
+  }
+  if (!any) hand.innerHTML = '<span style="color:#8a7a58">no cards</span>';
+
+  const ctx = PZ.context;
+  document.getElementById("opprow").innerHTML =
+    `<div class="pav" style="background:${OPP}">🤖</div>
+     <div><div class="pname">Opponent</div><div class="psub">hidden hand</div></div>
+     <div class="pstats">
+       <div class="pstat"><b>${ctx.opp_visible_vp}</b>VP</div>
+       <div class="pstat"><b>${ctx.opp_hand_size}</b>cards</div>
+       <div class="pstat"><b>${ctx.opp_dev_count}</b>devs</div>
+       <div class="pstat"><b>${ctx.opp_knights}</b>⚔️</div>
+       <div class="pstat award ${ctx.longest_road === "opp" ? "held" : ""}"><b>🛣</b>LR</div>
+       <div class="pstat award ${ctx.largest_army === "opp" ? "held" : ""}"><b>🛡</b>LA</div>
+     </div>`;
+  document.getElementById("merow").innerHTML =
+    `<div class="pav" style="background:${YOU}">👤</div>
+     <div><div class="pname">You</div><div class="psub">${
+       PZ.user_rating !== undefined ? "rating " + PZ.user_rating.toFixed(0) : "vs gen-7 engine"
+     }</div></div>
+     <div class="pstats">
+       <div class="pstat"><b>${ctx.my_vp}</b>VP</div>
+       <div class="pstat"><b>${ctx.deck_count}</b>deck</div>
+       <div class="pstat"><b>${ctx.my_knights}</b>⚔️</div>
+       <div class="pstat award ${ctx.longest_road === "you" ? "held" : ""}"><b>🛣</b>LR</div>
+       <div class="pstat award ${ctx.largest_army === "you" ? "held" : ""}"><b>🛡</b>LA</div>
+     </div>`;
+}
+
+function renderActionBar() {
+  const bar = document.getElementById("actionbar"); bar.innerHTML = "";
+  for (const cat of CAT_ORDER) {
+    if (!movesByCat[cat]) continue;
+    const meta = CATS[cat];
+    const b = document.createElement("button");
+    b.className = "actbtn" + (mode === cat ? " active" : "");
+    b.disabled = locked;
+    b.innerHTML = `<span class="ic">${meta.ic}</span>${meta.label}`;
+    b.onclick = () => activateMode(cat);
+    bar.appendChild(b);
+  }
+}
+
+function activateMode(cat) {
+  if (locked) return;
+  mode = cat; staged = null; stagedRoad = null;
+  const kind = CATS[cat].kind;
+  const picker = document.getElementById("picker");
+  picker.style.display = "none";
+  if (kind === "instant") {
+    stage(movesByCat[cat][0]);            // exactly one move; stage it
+  } else if (kind === "trade") {
+    buildTradePicker();
+  } else if (kind === "pairpick") {
+    buildPairPicker();
+  } else if (kind === "respick") {
+    buildResPicker();
+  }
+  renderActionBar(); renderBoard(); renderStaged();
+}
+
+/* ---- pickers: compose params yourself, mapped to a legal move ---- */
+
+function resButton(res, onClick, selected) {
+  const el = document.createElement("div");
+  el.className = "respick" + (selected ? " sel" : "");
+  el.style.background = RESFILL[res]; el.textContent = RESICON[res];
+  el.title = res; el.onclick = onClick; return el;
+}
+
+function buildTradePicker() {
+  const picker = document.getElementById("picker");
+  const moves = movesByCat.trade;
+  let give = null, get = null;
+  function redraw() {
+    picker.innerHTML = "";
+    const r1 = document.createElement("div"); r1.className = "row";
+    r1.innerHTML = '<span class="lbl">Give</span>';
+    for (const res of RESLIST) {
+      const has = moves.some(m => m.give === res);
+      const btn = resButton(res, () => { if (has) { give = res; get = null; redraw(); } }, give === res);
+      if (!has) btn.style.opacity = .3;
+      r1.appendChild(btn);
+    }
+    picker.appendChild(r1);
+    if (give) {
+      const ratio = moves.find(m => m.give === give).ratio;
+      const r2 = document.createElement("div"); r2.className = "row";
+      r2.innerHTML = `<span class="lbl">Get (${ratio}:1)</span>`;
+      for (const res of RESLIST) {
+        const mv = moves.find(m => m.give === give && m.get === res);
+        const btn = resButton(res, () => { if (mv) { get = res; stage(mv); redraw(); } }, get === res);
+        if (!mv) btn.style.opacity = .3;
+        r2.appendChild(btn);
+      }
+      picker.appendChild(r2);
+    }
+    fitBoard();
+  }
+  redraw();
+  picker.style.display = "block"; fitBoard();
+}
+
+function buildResPicker() {   // monopoly: declare one resource
+  const picker = document.getElementById("picker");
+  picker.innerHTML = '<div class="row"><span class="lbl">Declare</span></div>';
+  const row = picker.querySelector(".row");
+  for (const res of RESLIST) {
+    const mv = movesByCat.monopoly.find(m => m.get === res);
+    const btn = resButton(res, () => mv && stage(mv), false);
+    if (!mv) btn.style.opacity = .3;
+    row.appendChild(btn);
+  }
+  picker.style.display = "block"; fitBoard();
+}
+
+function buildPairPicker() {  // year of plenty: take two resources
+  const picker = document.getElementById("picker");
+  let pick = [];
+  function key(a) { return [...a].sort().join("+"); }
+  function redraw() {
+    picker.innerHTML = `<div class="row"><span class="lbl">Take 2</span></div>
+      <div class="row" style="color:#8a7a58;font-size:12px">Selected: ${pick.map(r => RESICON[r]).join(" ") || "—"}</div>`;
+    const row = picker.querySelector(".row");
+    for (const res of RESLIST) {
+      const btn = resButton(res, () => {
+        pick.push(res);
+        if (pick.length === 2) {
+          const mv = movesByCat.year_of_plenty.find(m => key(m.resources) === key(pick));
+          if (mv) stage(mv);
+          pick = [];
+        }
+        redraw();
+      }, false);
+      row.appendChild(btn);
+    }
+  }
+  redraw();
+  picker.style.display = "block"; fitBoard();
+}
+
+/* ---- staging + submit ---- */
+
+function stage(move) {
+  if (APP_MODE === "play") {
+    // Live game: composed actions PLAY immediately (colonist-style) — no
+    // staging, no Submit. The trainer keeps staging: a puzzle answer is a
+    // single scored commitment.
+    if (!locked) playAct({ codec_id: move.codec_id });
+    return;
+  }
+  staged = move;
+  if (move.category === "setup_settlement") stagedRoad = null;
+  renderStaged(); renderBoard();
+}
+function stageRoad(edgeId) {
+  stagedRoad = { codec_id: 54 + edgeId, kind: "edge", target: edgeId };
+  renderStaged(); renderBoard();
+}
+function needsRoad() {
+  // Composite settlement+road staging is a TRAINER concept (the road is a
+  // scored follow-up). In play mode the engine serves the road as its own
+  // decision on the next request.
+  return APP_MODE === "trainer" && staged && staged.category === "setup_settlement";
+}
+function clearStaged() {
+  if (locked) return;
+  if (APP_MODE === "play" && PZ && PZ.discard) {
+    discardPick = []; buildDiscardPicker(); return;
+  }
+  staged = null; stagedRoad = null; renderStaged(); renderBoard();
+}
+function renderStaged() {
+  const lbl = document.getElementById("stagedlabel");
+  const btn = document.getElementById("submit");
+  // Play mode: actions apply on click, so the Submit button only exists
+  // for the discard confirm (buildDiscardPicker manages that state).
+  btn.style.display = APP_MODE === "play" && !(PZ && PZ.discard) ? "none" : "";
+  if (APP_MODE === "play") {
+    if (PZ && PZ.discard) return;  // discard picker owns the label/button
+    lbl.textContent = PZ && PZ.game_over
+      ? "Game over — start a new game from the sidebar."
+      : "Click a move to play it. ⏭ End turn when you're done.";
+    btn.disabled = true;
+    return;
+  }
+  if (staged && needsRoad() && !stagedRoad) {
+    lbl.innerHTML = `Staged: <b>${emojify(staged.label)}</b> — now click one of its roads`;
+    btn.disabled = true;
+  } else if (staged) {
+    lbl.innerHTML = `Staged: <b>${emojify(staged.label)}</b>` +
+      (stagedRoad ? " <b>+ road</b>" : "");
+    btn.disabled = locked;
+  } else {
+    lbl.textContent = mode ? "Choose where / what, then Submit." : "Pick an action, then Submit.";
+    btn.disabled = true;
+  }
+}
+
+async function submitStaged() {
+  if (locked) return;
+  if (APP_MODE === "play") {
+    if (PZ.discard) { await playAct({ discard: discardPick }); return; }
+    if (!staged) return;
+    await playAct({ codec_id: staged.codec_id });
+    return;
+  }
+  if (!staged) return;
+  locked = true;
+  document.getElementById("submit").disabled = true;
+  const r = await fetch("/api/submit", { method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ puzzle_id: PZ.puzzle_id, codec_id: staged.codec_id,
+                           road_codec_id: stagedRoad ? stagedRoad.codec_id : null }) });
+  const res = await r.json();
+  if (res.error) { showFatal(`/api/submit -> ${res.error}`); return; }
+  if (res.illegal) {                 // shouldn't happen (we only stage legal), but be safe
+    locked = false;
+    document.getElementById("stagedlabel").textContent = "That move isn't legal here — try another.";
+    document.getElementById("submit").disabled = true; staged = null; return;
+  }
+  showResult(res);
+}
+
+function showResult(res) {
+  document.getElementById("stagedbar").style.display = "none";
+  renderActionBar();  // buttons now disabled (locked)
+  const pts = document.getElementById("points");
+  const shown = res.rated_points !== undefined ? res.rated_points : res.points;
+  pts.textContent = (shown > 0 ? "+" : "") + shown + " points";
+  pts.style.color = shown >= 75 ? "#15803d" : shown >= 10 ? "#b45309" : "#b91c1c";
+  document.getElementById("explain").textContent = res.explanation +
+    (res.rating.rated
+      ? `  ·  rating ${res.rating.user_before.toFixed(0)} → ${res.rating.user_after.toFixed(0)}`
+      : "  ·  (already attempted — not rated)");
+  const tb = document.getElementById("table"); tb.innerHTML = "";
+  const addRow = m => {
+    const tr = document.createElement("tr");
+    if (m.best) tr.className = "best"; else if (m.chosen) tr.className = "chosen";
+    tr.innerHTML = `<td>${m.rank + 1}</td><td>${emojify(m.label)}${m.chosen ? " ← you" : ""}</td>` +
+                   `<td>${(m.q * 100).toFixed(1)}%</td><td>${m.points}</td>`;
+    tb.appendChild(tr);
+  };
+  for (const m of res.table.filter(m => m.rank < 8 || m.chosen)) addRow(m);
+  let marks = res.table.filter(m => (m.best || m.chosen) && m.kind !== "button");
+  if (res.road && res.road.scored) {
+    const sep = document.createElement("tr");
+    sep.innerHTML = '<td colspan="4" style="color:#8a7a58;font-weight:800;padding-top:8px">Road (engine line)</td>';
+    tb.appendChild(sep);
+    for (const m of res.road.table) addRow(m);
+    marks = marks.concat(res.road.table.filter(m => m.best || m.chosen));
+  }
+  document.getElementById("result").style.display = "block";
+  renderBoard(marks);
+  document.getElementById("result").scrollIntoView({ behavior: "smooth" });
+}
+
+function mkTitle(text) {
+  const t = document.createElementNS("http://www.w3.org/2000/svg", "title");
+  t.textContent = text; return t;
+}
+
+function fitBoard() {
+  // Sizing is pure CSS now: #boardwrap is a shrinkable flex cell and the
+  // svg scales via its viewBox, so the controls below can never be pushed
+  // off-screen. Kept as a no-op for its call sites.
+}
+
+function renderBoard(marks) {
+  const L = PZ.layout, B = PZ.board;
+  const svg = document.getElementById("board");
+  svg.innerHTML = "";
+  svg.setAttribute("viewBox", `-30 -30 ${L.width + 60} ${L.height + 60}`);
+  const V = {}; L.vertices.forEach(v => V[v.id] = v);
+
+  for (const h of L.hexes)
+    S("polygon", { points: scalePts(h.vertex_ids, V, h.x, h.y, 1.45), fill: "#bfe0ef", opacity: .85 }, svg);
+  for (const h of L.hexes)
+    S("polygon", { points: scalePts(h.vertex_ids, V, h.x, h.y, 1.26), fill: "#ecd9a0" }, svg);
+  for (const h of L.hexes) {
+    const b = B.hexes[h.id];
+    S("polygon", { points: scalePts(h.vertex_ids, V, h.x, h.y, 0.95), fill: HEXFILL[b.terrain],
+                   stroke: "#d9c88f", "stroke-width": 3, "stroke-linejoin": "round" }, svg);
+    const icon = S("text", { x: h.x, y: h.y - 12, "text-anchor": "middle", "font-size": 24 }, svg);
+    icon.textContent = HEXICON[b.terrain];
+    if (b.number) {
+      S("rect", { x: h.x - 19, y: h.y + 2, width: 38, height: 34, rx: 8, fill: "#faf6ea",
+                  stroke: "#c9bd9c", "stroke-width": 1.5 }, svg);
+      const red = b.number === 6 || b.number === 8;
+      const t = S("text", { x: h.x, y: h.y + 22, "text-anchor": "middle", "font-size": 17,
+                  "font-weight": 800, fill: red ? "#c02626" : "#1d4a2a" }, svg);
+      t.textContent = b.number;
+      const pips = PIPS[b.number] || 0;
+      for (let i = 0; i < pips; i++)
+        S("circle", { cx: h.x - (pips - 1) * 3 + i * 6, cy: h.y + 29, r: 1.9,
+                      fill: red ? "#c02626" : "#1d4a2a" }, svg);
+    }
+    if (b.robber) {
+      const g = h.x - 22, gy = h.y - 4;
+      S("ellipse", { cx: g, cy: gy + 12, rx: 9, ry: 5, fill: "#4b5563" }, svg);
+      S("rect", { x: g - 7, y: gy - 10, width: 14, height: 22, rx: 7, fill: "#6b7280",
+                  stroke: "#374151", "stroke-width": 2 }, svg);
+      S("circle", { cx: g, cy: gy - 12, r: 6.5, fill: "#6b7280", stroke: "#374151", "stroke-width": 2 }, svg);
+    }
+  }
+
+  const C = L.center;
+  for (const p of B.ports) {
+    const a = V[p.v1], b = V[p.v2];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    let dx = mx - C.x, dy = my - C.y; const n = Math.hypot(dx, dy) || 1; dx /= n; dy /= n;
+    const sx = mx + dx * 42, sy = my + dy * 42;
+    for (const v of [a, b])
+      S("line", { x1: v.x, y1: v.y, x2: sx, y2: sy, stroke: "#a8783f", "stroke-width": 5,
+                  "stroke-dasharray": "7 5", opacity: .9 }, svg);
+    const ship = S("text", { x: sx, y: sy + 4, "text-anchor": "middle", "font-size": 26 }, svg);
+    ship.textContent = "⛵";
+    const label = p.type === "3:1" ? "3:1" : `${RESICON[p.type] || ""} 2:1`;
+    S("rect", { x: sx - 21, y: sy + 8, width: 42, height: 17, rx: 8, fill: "#faf6ea", stroke: "#c9bd9c" }, svg);
+    const lt = S("text", { x: sx, y: sy + 20.5, "text-anchor": "middle", "font-size": 11,
+                 "font-weight": 800, fill: "#35506b" }, svg);
+    lt.textContent = label;
+  }
+
+  for (const v of L.vertices)
+    S("circle", { cx: v.x, cy: v.y, r: 5.5, fill: "#fff", opacity: .16 }, svg);
+
+  for (const [eid, r] of Object.entries(B.roads)) {
+    const e = L.edges[eid], a = V[e.v1], b = V[e.v2];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, k = 0.7;
+    const seg = { x1: mx + (a.x - mx) * k, y1: my + (a.y - my) * k,
+                  x2: mx + (b.x - mx) * k, y2: my + (b.y - my) * k };
+    S("line", { ...seg, stroke: "#2d2418", "stroke-width": 10.5, "stroke-linecap": "round" }, svg);
+    S("line", { ...seg, stroke: r.mine ? YOU : OPP, "stroke-width": 6.5, "stroke-linecap": "round" }, svg);
+  }
+
+  for (const [vid, b] of Object.entries(B.buildings)) {
+    const v = V[vid], fill = b.mine ? YOU : OPP;
+    if (b.kind === "city")
+      S("path", { d: `M ${v.x-13},${v.y+9} L ${v.x-13},${v.y-6} L ${v.x-6},${v.y-13}
+                      L ${v.x+1},${v.y-6} L ${v.x+1},${v.y-2} L ${v.x+13},${v.y-2}
+                      L ${v.x+13},${v.y+9} Z`, fill, stroke: "#2d2418", "stroke-width": 2.4,
+                  "stroke-linejoin": "round" }, svg);
+    else
+      S("path", { d: `M ${v.x-9},${v.y+8} L ${v.x-9},${v.y-3} L ${v.x},${v.y-11}
+                      L ${v.x+9},${v.y-3} L ${v.x+9},${v.y+8} Z`, fill, stroke: "#2d2418",
+                  "stroke-width": 2.4, "stroke-linejoin": "round" }, svg);
+  }
+
+  // spatial move targets for the ACTIVE mode only — click stages (not submit)
+  const kind = mode ? CATS[mode].kind : null;
+  if (!locked && kind === "hex") {
+    // Emphasis must fall on the LEGAL hexes: dim the rest, outline the
+    // choices (a translucent fill over the choices read as the opposite).
+    const legal = new Set(movesByCat[mode].map(m => m.target));
+    for (const h of L.hexes) {
+      if (legal.has(h.id)) continue;
+      S("polygon", { points: scalePts(h.vertex_ids, V, h.x, h.y, 1.02),
+          fill: "#1e293b", opacity: .35, "pointer-events": "none" }, svg);
+    }
+  }
+  if (!locked && (kind === "vertex" || kind === "edge" || kind === "hex")) {
+    for (const m of movesByCat[mode]) {
+      if (m.kind === "vertex") {
+        const v = V[m.target];
+        const c = S("circle", { cx: v.x, cy: v.y, r: 12.5, fill: GOLD, opacity: .8,
+            stroke: "#fff", "stroke-width": 3, class: "target pulse" }, svg);
+        c.onclick = () => stage(m); c.append(mkTitle(m.label));
+      } else if (m.kind === "edge") {
+        const e = L.edges[m.target], a = V[e.v1], b = V[e.v2];
+        const l = S("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: GOLD, "stroke-width": 12,
+            opacity: .7, "stroke-linecap": "round", class: "target pulse" }, svg);
+        l.onclick = () => stage(m); l.append(mkTitle(m.label));
+      } else if (m.kind === "hex") {
+        const h = L.hexes[m.target];
+        const p = S("polygon", { points: scalePts(h.vertex_ids, V, h.x, h.y, 0.95),
+            fill: "transparent", stroke: GOLD, "stroke-width": 5,
+            class: "target pulse" }, svg);
+        p.onclick = () => stage(m); p.append(mkTitle(m.label));
+      }
+    }
+  }
+
+  // staged previews: ghost pieces so the choice is unmissable
+  if (!locked && staged && staged.kind !== "button") {
+    drawGhost(svg, staged, L, V);
+    // setup composite: after the settlement, its candidate roads light up
+    if (needsRoad()) {
+      for (const e of L.edges) {
+        if (e.v1 !== staged.target && e.v2 !== staged.target) continue;
+        if (B.roads[e.id]) continue;
+        const a = V[e.v1], b2 = V[e.v2];
+        const l = S("line", { x1: a.x, y1: a.y, x2: b2.x, y2: b2.y,
+            stroke: stagedRoad && stagedRoad.target === e.id ? "#fff" : GOLD,
+            "stroke-width": 12, opacity: .75, "stroke-linecap": "round",
+            class: "target pulse" }, svg);
+        l.onclick = () => stageRoad(e.id);
+        l.append(mkTitle("Place the road here"));
+      }
+    }
+    if (stagedRoad) drawGhost(svg, { ...stagedRoad, ghostRoad: true }, L, V);
+  }
+  // post-submit rings
+  if (marks) for (const mk of marks) {
+    const pos = targetXY(mk, L, V);
+    if (pos) S("circle", { cx: pos.x, cy: pos.y, r: 18, fill: "none",
+        stroke: mk.best ? GOOD : "#fff", "stroke-width": 4,
+        "stroke-dasharray": mk.best ? "" : "6 4" }, svg);
+  }
+}
+
+function drawGhost(svg, m, L, V) {
+  const pos = targetXY(m, L, V);
+  if (!pos) return;
+  if (m.kind === "vertex") {
+    const city = m.category === "build_city";
+    const w = city ? 13 : 9, top = city ? 13 : 11;
+    S("path", { d: `M ${pos.x-w},${pos.y+8} L ${pos.x-w},${pos.y-3} L ${pos.x},${pos.y-top}
+                    L ${pos.x+w},${pos.y-3} L ${pos.x+w},${pos.y+8} Z`,
+        fill: YOU, opacity: .6, stroke: "#fff", "stroke-width": 2.5,
+        "stroke-dasharray": "5 3", "stroke-linejoin": "round" }, svg);
+  } else if (m.kind === "edge") {
+    const e = L.edges[m.target], a = V[e.v1], b = V[e.v2];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, k = 0.7;
+    S("line", { x1: mx + (a.x - mx) * k, y1: my + (a.y - my) * k,
+                x2: mx + (b.x - mx) * k, y2: my + (b.y - my) * k,
+                stroke: YOU, opacity: .65, "stroke-width": 8,
+                "stroke-linecap": "round", "stroke-dasharray": "7 5" }, svg);
+  } else if (m.kind === "hex") {
+    S("circle", { cx: pos.x, cy: pos.y, r: 14, fill: "#4b5563", opacity: .6,
+                  stroke: "#fff", "stroke-width": 2.5, "stroke-dasharray": "5 3" }, svg);
+  }
+}
+
+function targetXY(m, L, V) {
+  if (m.kind === "vertex") return { x: V[m.target].x, y: V[m.target].y };
+  if (m.kind === "edge") { const e = L.edges[m.target];
+    return { x: (V[e.v1].x + V[e.v2].x) / 2, y: (V[e.v1].y + V[e.v2].y) / 2 }; }
+  if (m.kind === "hex") return { x: L.hexes[m.target].x, y: L.hexes[m.target].y };
+  return null;
+}
+
+let _resizeT;
+window.addEventListener("resize", () => {
+  clearTimeout(_resizeT);
+  _resizeT = setTimeout(() => { if (PZ) renderBoard(); }, 120);
+});
+loadNext();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+=== gen-7 flywheel gates (Tue Aug 11 00:10:34 CDT 2026) ===
+--- gate 1: gen7 (pure) vs raw Stage B engine, 100 games ---
+
+net-MCTS vs mcts (equal s=160,k=4): 75/100 = 75.0% (95% CI 65.7%-82.5%)
+  as seat 0: 35/50
+  as seat 1: 40/50
+--- gate 2: gen7 vs incumbent gen6, 200 games ---
+[200/200] A 114/200 (3392s)
+
+checkpoints/gen7.pt vs checkpoints/gen6.pt: 114/200 = 57.0% (95% CI 50.1%-63.7%)
+=== done (Tue Aug 11 01:25:33 CDT 2026) ===

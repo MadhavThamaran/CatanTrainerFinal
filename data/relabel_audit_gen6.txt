@@ -1,0 +1,37 @@
+[1/20] e1c09b586e4f: no-longer-admitted (no-clear-best)
+[2/20] 6a98cf54d3ae: stable
+[3/20] de560eb3f433: no-longer-admitted (no-clear-best)
+[4/20] c86246937cbe: no-longer-admitted (no-clear-best)
+[5/20] 77038ccdb974: no-longer-admitted (no-clear-best)
+[6/20] 26bab6f1473c: no-longer-admitted (no-clear-best)
+[7/20] f6a0b6b6ab25: no-longer-admitted (no-clear-best)
+[8/20] 077d734c8d16: no-longer-admitted (no-clear-best)
+[9/20] 018822326737: stable
+[10/20] 69a7ca6ab816: no-longer-admitted (no-clear-best)
+[11/20] 392fd582a3b9: stable
+[12/20] a5c06efd939a: BEST-MOVE-CHANGED
+[13/20] d33432dd4ee9: no-longer-admitted (no-clear-best)
+[14/20] fd7143f2c5a8: stable
+[15/20] 153312f27951: no-longer-admitted (decided)
+[16/20] e22e6c9cf505: stable
+[17/20] 77b373f08e6d: no-longer-admitted (no-clear-best)
+[18/20] 2129083ffa12: no-longer-admitted (no-clear-best)
+[19/20] 85c2ee5b19fd: no-longer-admitted (no-clear-best)
+[20/20] d79693c47f2c: no-longer-admitted (no-clear-best)
+
+5/20 stable
+  {'id': 'e1c09b586e4f', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': 'de560eb3f433', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': 'c86246937cbe', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': '77038ccdb974', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': '26bab6f1473c', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': 'f6a0b6b6ab25', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': '077d734c8d16', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': '69a7ca6ab816', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': 'a5c06efd939a', 'status': 'BEST-MOVE-CHANGED', 'old_best': '<TRADE_BANK p0 give=ore get=sheep>', 'new_best': '<END_TURN p0>'}
+  {'id': 'd33432dd4ee9', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': '153312f27951', 'status': 'no-longer-admitted (decided)'}
+  {'id': '77b373f08e6d', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': '2129083ffa12', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': '85c2ee5b19fd', 'status': 'no-longer-admitted (no-clear-best)'}
+  {'id': 'd79693c47f2c', 'status': 'no-longer-admitted (no-clear-best)'}
