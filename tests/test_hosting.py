@@ -80,7 +80,7 @@ def live_server(tmp_path):
     path, puzzle = _puzzle_file(tmp_path)
     store = JsonStore(tmp_path / "state.json")
     service = TrainerService(path, store)
-    handler = make_handler(service, play=None, session_secret="test-secret",
+    handler = make_handler(service, play=None, review=None, session_secret="test-secret",
                             secure_cookies=False)
     from http.server import ThreadingHTTPServer
 

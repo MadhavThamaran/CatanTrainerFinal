@@ -9,16 +9,20 @@ don't re-design. Statuses as of 2026-08-14.
       the new machine, `uv run pytest -q` green (117).
 
 ## Phase 1 — public product (unlocks everything user-data-driven)
-- [ ] **HOSTING.md** — accounts (scrypt + signed cookies), storage seam
+- [x] **HOSTING.md** — accounts (scrypt + signed cookies), storage seam
       (JsonStore/PgStore), Render + Neon deploy of the puzzle trainer.
-      ~1 day. *While in the ratings store: do the DASHBOARD_SPEC §0
-      per-skill-Elo addition in the same change — same seam.*
+      DONE 2026-09-29: live at https://catantrainerfinal.onrender.com.
+      DASHBOARD_SPEC §0 per-skill-Elo addition still open (not done in
+      the same change — revisit when building the dashboard).
 - [ ] **SRS_SPEC.md** — spaced repetition. ~0.75 day. Ship with accounts
       so queues are per-user from birth.
 
 ## Phase 2 — the improvement loop
-- [ ] **REVIEW_SPEC.md** — post-game review. ~1 day. (Game recording +
-      replay-integrity test: DONE, shipped.)
+- [x] **REVIEW_SPEC.md** — post-game review. DONE 2026-09-29:
+      `trainer/review.py` + `/api/review/start` + `/api/review/poll` +
+      the review UI (accuracy, verdict chips, win-prob graph, click-a-
+      move board replay). (Game recording + replay-integrity test: DONE,
+      shipped earlier.)
 - [ ] **COACH_SPEC.md** — pre-move interjection coaching. ~1 day.
 - [ ] **DASHBOARD_SPEC.md** — weakness dashboard. ~1 day after review
       exists (attempt-log enrichment: DONE, shipped).

@@ -20,6 +20,7 @@ import os
 import secrets
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs
 
 from . import auth
 from .service import TrainerService
@@ -43,6 +44,7 @@ def _parse_cookie(header: str | None, name: str) -> str | None:
 def make_handler(
     service: TrainerService,
     play,
+    review,
     session_secret: str,
     secure_cookies: bool,
 ):
@@ -75,28 +77,38 @@ def make_handler(
             self.wfile.write(body)
 
         def do_GET(self):
+            path, _, query = self.path.partition("?")
             try:
-                if self.path in ("/", "/index.html"):
+                if path in ("/", "/index.html"):
                     body = (_STATIC / "index.html").read_bytes()
                     self.send_response(200)
                     self.send_header("Content-Type", "text/html; charset=utf-8")
                     self.send_header("Content-Length", str(len(body)))
                     self.end_headers()
                     self.wfile.write(body)
-                elif self.path == "/api/me":
+                elif path == "/api/me":
                     uid = _user_id(self)
                     self._json({"user_id": uid} if uid is not None else {"user_id": None})
-                elif self.path == "/api/next":
+                elif path == "/api/next":
                     uid = _user_id(self)
                     if uid is None:
                         self._json({"error": "unauthenticated"}, 401)
                         return
                     self._json(service.next_puzzle(uid))
-                elif self.path == "/api/play/new":
+                elif path == "/api/play/new":
                     if play is None:
                         self._json({"error": "play mode not available on this deployment"}, 404)
                         return
                     self._json(play.new_game())
+                elif path == "/api/review/poll":
+                    if review is None:
+                        self._json({"error": "review not available on this deployment"}, 404)
+                        return
+                    qs = parse_qs(query)
+                    result = review.poll(
+                        qs.get("id", [""])[0], int(qs.get("from", ["0"])[0])
+                    )
+                    self._json(result, 404 if "error" in result else 200)
                 else:
                     self._json({"error": "not found"}, 404)
             except Exception as exc:  # noqa: BLE001
@@ -133,6 +145,12 @@ def make_handler(
                         discard=req.get("discard"),
                     )
                     self._json(result)
+                elif self.path == "/api/review/start":
+                    if review is None:
+                        self._json({"error": "review not available on this deployment"}, 404)
+                        return
+                    result = review.start(req["game_id"])
+                    self._json(result, result.pop("status", 404) if "error" in result else 200)
                 else:
                     self._json({"error": "not found"}, 404)
             except KeyError as exc:
@@ -193,16 +211,21 @@ def main() -> None:
     ap.add_argument("--bot-sims", type=int, default=160)
     ap.add_argument("--no-play", action="store_true",
                      help="disable play-vs-bot (no torch import) — for hosted deploys")
+    ap.add_argument("--review-sims", type=int, default=512,
+                     help="post-game review search depth (deeper than play)")
+    ap.add_argument("--review-dets", type=int, default=6)
     args = ap.parse_args()
 
     store = get_store(args.state)
     service = TrainerService(args.puzzles, store)
 
-    play = None
+    play, review = None, None
     if not args.no_play:
         from .play import PlayService
+        from .review import ReviewService
 
         play = PlayService(net_path=args.bot, sims=args.bot_sims)
+        review = ReviewService(sims=args.review_sims, dets=args.review_dets)
 
     session_secret = os.environ.get("SESSION_SECRET")
     if not session_secret:
@@ -213,7 +236,7 @@ def main() -> None:
 
     server = ThreadingHTTPServer(
         (args.host, args.port),
-        make_handler(service, play, session_secret, secure_cookies),
+        make_handler(service, play, review, session_secret, secure_cookies),
     )
     print(f"catan tactics trainer: {len(service.puzzles)} puzzles loaded")
     print(f"play mode bot: {args.bot} (s={args.bot_sims})" if play else "play mode: disabled")

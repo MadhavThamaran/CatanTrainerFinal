@@ -7,14 +7,18 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~30s, 117 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 131 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
-uv run python -m trainer.server       # the web app on :8321 (trainer + play mode)
+uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
 uv run python -m net.selfplay --games N --sims S --net CKPT --seed-offset F --out X.npz
 ```
-Requires `uv` (provisions Python 3.12). Engine is stdlib-only; net/
-needs torch; trainer serving needs neither torch nor search.
+Requires `uv` (provisions Python 3.12; a pinned Python may not always be
+available — falls back to whatever `uv` finds). Engine is stdlib-only;
+net/ needs torch (optional `play` extra, or the `dev` group for local
+work); trainer serving needs numpy (real base dependency — puzzles ->
+net.codec pulls it in) plus psycopg when `DATABASE_URL` is set, but no
+torch/search unless play mode (`--no-play` to disable) is on.
 
 ## Architecture in one breath
 
@@ -25,14 +29,25 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 `puzzles/` (mine candidates from self-play, deep-label, admit) →
 `trainer/` (stdlib HTTP app: puzzle trainer + play-vs-bot).
 
-## Current state (2026-08-14)
+## Current state (2026-09-29)
 
 - **Champion: `checkpoints/gen7.pt`** (75/100 vs raw engine; gen-8 was
-  NOT promoted — 218/400, CI-LB < 50%).
+  NOT promoted — 218/400, CI-LB < 50%). Gen-9 (scaled to this machine's
+  measured throughput — see seed ledger below) running in the background.
 - **Puzzles: `data/puzzles_v5.jsonl`, 3,413 net-labeled** (trainer
   default). Labeling engine is gen-6 by policy (see ROADMAP B3).
 - Promotion standard: 200-game head-to-head, CI lower bound > 50%.
-- Play mode records every game to `data/games/` (replayable logs).
+- **Hosting (HOSTING.md step 1) shipped**: accounts (`trainer/store.py`
+  `Store`/`JsonStore`/`PgStore`, `trainer/auth.py` scrypt + signed
+  cookies), per-user ratings, login/signup UI. Live at
+  `https://catantrainerfinal.onrender.com` (Render free tier + Neon
+  Postgres; `--no-play` there since play mode needs torch).
+- **Post-game review (REVIEW_SPEC.md) shipped**: `trainer/review.py`
+  scores every human play-mode decision at deeper search than play used,
+  chess.com-style report (accuracy, verdict chips, win-prob graph,
+  click-a-move board replay). `/api/review/start`, `/api/review/poll`.
+- Play mode records every game to `data/games/` (replayable logs) — the
+  foundation review stands on.
 - `docs/EXECUTION_INDEX.md` orders all forward work; each feature has a
   full spec in `docs/*_SPEC.md`. Measured history: README Stage-5
   section + `data/*_report.txt`.
@@ -71,5 +86,5 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Explanatory strings shown to users derive ONLY from computed facts —
   no vibes (see EXPLAIN_SPEC honesty rules; same contract in lab,
   dashboard, coach specs).
-- Tests are the porting/refactor contract: 117 passing, spec-mapped
+- Tests are the porting/refactor contract: 131 passing, spec-mapped
   files per feature (`tests/test_<feature>.py`).

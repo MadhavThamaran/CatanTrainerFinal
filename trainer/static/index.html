@@ -119,6 +119,33 @@
     78%  { opacity: 1; }
     100% { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(1); }
   }
+  /* post-game review */
+  #reviewbtn { margin-top: 8px; width: 100%; background: #7c3aed; border: none; color: #fff;
+               font-size: 14px; font-weight: 800; padding: 9px; border-radius: 9px; cursor: pointer; }
+  #reviewbtn:disabled { background: #9aa0a6; cursor: default; }
+  #reviewcard { display: none; }
+  #reviewprogress { font-size: 13px; color: #8a7a58; margin: 4px 0 8px; }
+  #reviewaccuracy { font-size: 30px; font-weight: 900; margin: 0 0 2px; color: #2d2418; }
+  #reviewsub { font-size: 12px; color: #8a7a58; margin: 0 0 8px; }
+  .vchip { display: inline-flex; align-items: center; gap: 3px; padding: 3px 10px;
+           border-radius: 999px; font-size: 11px; font-weight: 800; margin: 0 5px 5px 0; }
+  .vchip.best, .vchip.great { background: #dcfce7; color: #15803d; }
+  .vchip.good { background: #e0e7ff; color: #3730a3; }
+  .vchip.inaccuracy { background: #fef3c7; color: #92400e; }
+  .vchip.mistake { background: #fee2e2; color: #b91c1c; }
+  .vchip.blunder { background: #fecaca; color: #7f1d1d; }
+  #reviewgraph { width: 100%; height: 64px; display: block; margin: 4px 0 8px; }
+  #reviewlist { max-height: 260px; overflow-y: auto; }
+  .revrow { display: flex; align-items: center; gap: 8px; padding: 6px 4px;
+            border-bottom: 1px solid #e2d7b8; cursor: pointer; font-size: 12.5px; }
+  .revrow:hover { background: #efe7cf; }
+  .revrow.sel { background: #dbe7f7; }
+  .revrow .revicon { width: 18px; text-align: center; flex-shrink: 0; }
+  .revrow .revlabel { flex: 1; min-width: 0; }
+  .revrow .revbest { display: block; font-size: 11px; color: #8a7a58; }
+  .revrow .revpts { font-weight: 800; width: 38px; text-align: right; flex-shrink: 0; }
+  #reviewback { width: 100%; margin-top: 10px; background: #2563eb; border: none; color: #fff;
+                font-size: 14px; font-weight: 800; padding: 9px; border-radius: 9px; cursor: pointer; }
   .gainchip { position: absolute; font-size: 15px; font-weight: 800; color: #2d2418;
               background: #f7f1df; border-radius: 999px; padding: 5px 14px;
               box-shadow: 0 3px 9px rgba(0,0,0,.3); border: 2.5px solid transparent;
@@ -179,7 +206,20 @@
     <div class="card" id="gamelog">
       <h3>Game log</h3>
       <div id="loglines"></div>
+      <button id="reviewbtn" style="display:none" onclick="startReview()">📊 Review game</button>
       <button id="newgame" onclick="loadGame()">🔄 New game</button>
+    </div>
+    <div class="card" id="reviewcard">
+      <h3>Game review</h3>
+      <div id="reviewprogress"></div>
+      <div id="reviewheader" style="display:none">
+        <div id="reviewaccuracy"></div>
+        <div id="reviewsub">average move quality (blunders floor at 0)</div>
+        <div id="reviewchips"></div>
+        <svg id="reviewgraph" viewBox="0 0 300 64" preserveAspectRatio="none"></svg>
+        <div id="reviewlist"></div>
+        <button id="reviewback" onclick="backToGame()">↩ Back to game</button>
+      </div>
     </div>
     <div class="card" id="result">
       <div id="points"></div>
@@ -323,6 +363,7 @@ async function logout() {
 
 function switchMode(m) {
   if (m === APP_MODE) return;
+  closeReview();
   APP_MODE = m;
   document.getElementById("mode-trainer").classList.toggle("active", m === "trainer");
   document.getElementById("mode-play").classList.toggle("active", m === "play");
@@ -372,6 +413,7 @@ async function loadNext() {
 /* ---- play mode ---- */
 
 async function loadGame() {
+  closeReview();
   document.getElementById("prompttext").textContent = "Setting up the board…";
   document.getElementById("loglines").innerHTML = "";
   const r = await fetch("/api/play/new");
@@ -470,6 +512,7 @@ function applyPlayNow(v) {
       ? (v.winner === "you" ? "🏆 You win!" :
          v.winner === "bot" ? "🤖 The engine wins." : "Draw.")
       : v.prompt;
+  document.getElementById("reviewbtn").style.display = v.game_over ? "" : "none";
   renderSide(); renderActionBar(); renderBoard(); renderStaged();
   if (v.game_over) { locked = true; renderActionBar(); return; }
   if (v.discard) { buildDiscardPicker(); return; }
@@ -491,6 +534,163 @@ function appendEvents(events) {
     box.appendChild(d);
   }
   box.scrollTop = box.scrollHeight;
+}
+
+/* ---- post-game review (REVIEW_SPEC) ---- */
+
+const VERDICT_META = {
+  best: { icon: "⭐", label: "Best" },
+  great: { icon: "✓", label: "Great" },
+  good: { icon: "✓", label: "Good" },
+  inaccuracy: { icon: "⚠", label: "Inaccuracy" },
+  mistake: { icon: "✗", label: "Mistake" },
+  blunder: { icon: "⛔", label: "Blunder" },
+};
+let REVIEW = null;   // {reviewId, total, rows, liveBoard, selected}
+
+async function startReview() {
+  if (!PZ || !PZ.session) return;
+  document.getElementById("reviewbtn").disabled = true;
+  let r, v;
+  try {
+    r = await fetch("/api/review/start", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ game_id: PZ.session }) });
+    v = await r.json();
+  } catch (e) {
+    showFatal(`/api/review/start -> ${e}`);
+    document.getElementById("reviewbtn").disabled = false;
+    return;
+  }
+  if (!r.ok) {
+    showFatal(`/api/review/start -> ${v.error || r.status}`);
+    document.getElementById("reviewbtn").disabled = false;
+    return;
+  }
+  REVIEW = { reviewId: v.review_id, total: v.total, rows: [], liveBoard: PZ.board, selected: -1 };
+  document.getElementById("gamelog").style.display = "none";
+  document.getElementById("reviewcard").style.display = "block";
+  document.getElementById("reviewheader").style.display = "none";
+  renderReviewProgress();
+  pollReview();
+}
+
+async function pollReview() {
+  if (!REVIEW) return;
+  const r = await fetch(`/api/review/poll?id=${encodeURIComponent(REVIEW.reviewId)}&from=${REVIEW.rows.length}`);
+  const v = await r.json();
+  if (!REVIEW) return;              // user left review while this was in flight
+  if (v.error) { showFatal(`/api/review/poll -> ${v.error}`); return; }
+  REVIEW.rows.push(...v.results);
+  REVIEW.total = v.total;
+  renderReviewProgress();
+  if (v.done) { renderReviewFinal(); return; }
+  setTimeout(pollReview, 1500);
+}
+
+function renderReviewProgress() {
+  const n = REVIEW.rows.length, total = REVIEW.total || "?";
+  document.getElementById("reviewprogress").textContent =
+    n < total ? `Scoring decision ${n}/${total}…` : "";
+}
+
+function renderReviewFinal() {
+  const rows = REVIEW.rows;
+  document.getElementById("reviewheader").style.display = "block";
+  const acc = rows.length
+    ? Math.round(rows.reduce((s, r) => s + Math.max(r.chosen.points, 0), 0) / rows.length)
+    : 0;
+  document.getElementById("reviewaccuracy").textContent = acc + "% accuracy";
+  const counts = {};
+  for (const row of rows) counts[row.verdict] = (counts[row.verdict] || 0) + 1;
+  const chips = document.getElementById("reviewchips");
+  chips.innerHTML = "";
+  for (const key of ["best", "great", "good", "inaccuracy", "mistake", "blunder"]) {
+    if (!counts[key]) continue;
+    const meta = VERDICT_META[key];
+    const c = document.createElement("span");
+    c.className = "vchip " + key;
+    c.textContent = `${meta.icon} ${meta.label} ×${counts[key]}`;
+    chips.appendChild(c);
+  }
+  renderReviewGraph(rows);
+  renderReviewList(rows);
+}
+
+function renderReviewGraph(rows) {
+  const svg = document.getElementById("reviewgraph");
+  svg.innerHTML = "";
+  if (!rows.length) return;
+  const W = 300, H = 64;
+  const pts = rows.map((r, i) => ({
+    x: rows.length > 1 ? (i / (rows.length - 1)) * W : W / 2,
+    y: H - r.win_prob * H,
+    row: r,
+  }));
+  S("polyline", {
+    points: pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "),
+    fill: "none", stroke: "#2563eb", "stroke-width": 2,
+  }, svg);
+  pts.forEach((p, i) => {
+    const bad = p.row.verdict === "blunder" || p.row.verdict === "mistake";
+    const c = S("circle", {
+      cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: bad ? 4 : 2.5,
+      fill: bad ? "#b91c1c" : "#2563eb",
+    }, svg);
+    c.style.cursor = "pointer";
+    c.onclick = () => selectReviewRow(i);
+  });
+}
+
+function renderReviewList(rows) {
+  const list = document.getElementById("reviewlist");
+  list.innerHTML = "";
+  rows.forEach((row, i) => {
+    const meta = VERDICT_META[row.verdict];
+    const div = document.createElement("div");
+    div.className = "revrow" + (REVIEW.selected === i ? " sel" : "");
+    const showBest = row.verdict !== "best" && row.verdict !== "great";
+    div.innerHTML =
+      `<span class="revicon">${meta.icon}</span>` +
+      `<span class="revlabel">${emojify(row.chosen.label)}` +
+      (showBest ? `<span class="revbest">best: ${emojify(row.best.label)}</span>` : "") +
+      `</span><span class="revpts">${row.chosen.points > 0 ? "+" : ""}${row.chosen.points}</span>`;
+    div.onclick = () => selectReviewRow(i);
+    list.appendChild(div);
+  });
+}
+
+function selectReviewRow(i) {
+  REVIEW.selected = i;
+  const row = REVIEW.rows[i];
+  PZ = { ...PZ, board: row.board };
+  const marks = row.marks.map(m => ({
+    kind: m.kind, target: m.target, best: !!m.best, chosen: !!m.chosen,
+  }));
+  renderBoard(marks);
+  document.getElementById("prompttext").textContent =
+    `Decision ${row.nth_decision}: ${VERDICT_META[row.verdict].label}` +
+    ` (${row.chosen.points > 0 ? "+" : ""}${row.chosen.points} pts)`;
+  renderReviewList(REVIEW.rows);
+}
+
+function backToGame() {
+  if (REVIEW) PZ = { ...PZ, board: REVIEW.liveBoard };
+  closeReview();
+  if (PZ) {
+    renderBoard();
+    document.getElementById("prompttext").textContent =
+      PZ.winner === "you" ? "🏆 You win!" :
+      PZ.winner === "bot" ? "🤖 The engine wins." : "Draw.";
+  }
+}
+
+function closeReview() {
+  REVIEW = null;
+  document.getElementById("reviewcard").style.display = "none";
+  document.getElementById("reviewheader").style.display = "none";
+  document.getElementById("reviewbtn").disabled = false;
+  if (APP_MODE === "play") document.getElementById("gamelog").style.display = "block";
 }
 
 function buildDiscardPicker() {
