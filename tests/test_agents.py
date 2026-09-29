@@ -13,7 +13,8 @@ from agents import (
     play_game,
 )
 from agents.heuristic import production_value
-from engine import Board, PortType, TOPOLOGY, Terrain
+from engine import Action, ActionType, Board, PortType, TOPOLOGY, Terrain
+from helpers import make_main_state, put_settlement
 
 
 def _blank_board() -> Board:
@@ -121,6 +122,38 @@ def test_greedy_self_play_reaches_a_real_win():
     assert result.decided_by == "victory", result
     assert result.winner in (0, 1)
     assert max(result.vps) >= 15
+
+
+def test_robber_score_finds_buildings_on_the_targeted_hex():
+    """Regression: `_robber_score` indexed `TOPOLOGY.vertex_hexes[a.hex]`
+    (vertex -> hexes) instead of `TOPOLOGY.hex_vertices[a.hex]` (hex ->
+    vertices) — `a.hex` is a hex id, so it was scoring buildings on an
+    unrelated, coincidentally-numbered vertex instead of the hex it was
+    actually evaluating, completely blind to the real target."""
+    board = _blank_board()
+    target_hex = 0
+    settlement_vertex = TOPOLOGY.hex_vertices[target_hex][0]
+    # A hex that shares NO vertex with the settlement (not just a
+    # different id) — otherwise a shared corner would legitimately score
+    # both hexes and mask the regression.
+    touching = set(TOPOLOGY.vertex_hexes[settlement_vertex])
+    quiet_hex = next(h for h in range(TOPOLOGY.num_hexes) if h not in touching)
+    _set_hex(board, target_hex, Terrain.HILLS, 6)   # brick, 5 pips
+    _set_hex(board, quiet_hex, Terrain.HILLS, 6)     # same production, no building
+
+    state = make_main_state(board=board)
+    state.robber_hex = quiet_hex
+    put_settlement(state, 1, settlement_vertex)
+    state.current_player = 0
+
+    agent = HeuristicAgent()
+    a_target = Action(ActionType.MOVE_ROBBER, 0, hex=target_hex)
+    a_quiet = Action(ActionType.MOVE_ROBBER, 0, hex=quiet_hex)
+    score_target, score_quiet = agent.score_actions(state, [a_target, a_quiet])
+    assert score_target > score_quiet, (
+        "robbing the hex the opponent actually settled must outscore an "
+        "equally productive hex with no building on it"
+    )
 
 
 def test_agent_only_returns_legal_actions():

@@ -7,7 +7,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~1-4min, 165 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 178 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
@@ -101,6 +101,16 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Engine changes must keep the (seed, action-log) determinism contract —
   `tests/test_play.py::test_game_record_replays_to_identical_outcome`
   is the tripwire.
+- **`TOPOLOGY.vertex_hexes[v]` (vertex -> hexes) vs `TOPOLOGY.hex_vertices[h]`
+  (hex -> vertices) are easy to swap** — `agents/heuristic.py::_robber_score`
+  did exactly this (indexed `vertex_hexes[a.hex]`, a hex id, into the
+  vertex-keyed table) and was silently blind to buildings on the hex it
+  was scoring for the life of the project. No training/labeling impact
+  (self-play and labeling always run at `net_prior_mix=1.0`, which never
+  touches the heuristic prior — see PLAN.md M5), but it did make the "vs
+  raw engine" context numbers in README/PLAN noisier than reported. Fixed
+  2026-09-29; guarded by
+  `tests/test_agents.py::test_robber_score_finds_buildings_on_the_targeted_hex`.
 
 ## Conventions
 

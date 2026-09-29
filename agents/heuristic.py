@@ -161,7 +161,9 @@ class HeuristicAgent(Agent):
         me = state.current_player
         opp = 1 - me
         score = 0.0
-        for v in TOPOLOGY.vertex_hexes[a.hex]:
+        # hex_vertices (not vertex_hexes!): a.hex is a HEX id, so we need
+        # the hex's own vertices to find buildings sitting on it.
+        for v in TOPOLOGY.hex_vertices[a.hex]:
             b = state.buildings.get(v)
             if b is None:
                 continue
@@ -176,7 +178,7 @@ class HeuristicAgent(Agent):
         # Prefer a hex where a steal actually lands.
         opp_adjacent = any(
             state.buildings.get(v, (None,))[0] == opp
-            for v in TOPOLOGY.vertex_hexes[a.hex]
+            for v in TOPOLOGY.hex_vertices[a.hex]
         )
         if opp_adjacent and state.players[opp].hand_size() > 0:
             score += 4.0
