@@ -18,6 +18,9 @@ name = "catan-trainer"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "psycopg", extra = ["binary"] },
 ]
 
@@ -30,9 +33,6 @@ play = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
-    { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "playwright" },
     { name = "pytest" },
     { name = "torch", version = "2.14.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
@@ -42,6 +42,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "numpy", specifier = ">=2.2.6" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1" },
     { name = "torch", marker = "sys_platform == 'win32' and extra == 'play'", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu126" },
     { name = "torch", marker = "sys_platform != 'win32' and extra == 'play'", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cpu" },
@@ -50,7 +51,6 @@ provides-extras = ["play"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "numpy", specifier = ">=2.2.6" },
     { name = "playwright", specifier = ">=1.61.0" },
     { name = "pytest", specifier = ">=8" },
     { name = "torch", marker = "sys_platform != 'win32'", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cpu" },

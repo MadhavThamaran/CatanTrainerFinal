@@ -3,12 +3,14 @@ name = "catan-trainer"
 version = "0.1.0"
 description = "1v1 Colonist-variant Catan engine and tactics trainer"
 requires-python = ">=3.10"
-# psycopg is the only runtime dep the deployed trainer needs (PgStore, when
-# DATABASE_URL is set) -- torch stays out of the base install (HOSTING.md:
-# `uv sync --frozen --no-dev` keeps the Render build slim) and is opt-in via
-# the `play` extra (`uv sync --extra play`) for a paid host that runs play
-# mode, or via the `dev` group for local development.
+# psycopg (PgStore) and numpy (net/encode.py's action codec, imported
+# transitively by trainer -> puzzles -> net even with play mode off) are
+# real runtime deps of the deployed trainer. torch stays out of the base
+# install (HOSTING.md: `uv sync --frozen --no-dev` keeps the Render build
+# slim) and is opt-in via the `play` extra (`uv sync --extra play`) for a
+# paid host that runs play mode, or via the `dev` group for local dev.
 dependencies = [
+    "numpy>=2.2.6",
     "psycopg[binary]>=3.1",
 ]
 
@@ -17,7 +19,6 @@ play = ["torch>=2.4"]
 
 [dependency-groups]
 dev = [
-    "numpy>=2.2.6",
     "playwright>=1.61.0",
     "pytest>=8",
     "torch>=2.4",
