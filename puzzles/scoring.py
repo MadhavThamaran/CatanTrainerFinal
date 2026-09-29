@@ -21,6 +21,17 @@ POINT_BANDS = [
 BLUNDER_POINTS = -25
 BEST_POINTS = 100
 
+# points_for_regret's exact output values -> the verdict chip shown in the
+# UI (trainer review + coach mode both key off this one table).
+VERDICT_FOR_POINTS = {
+    100: "best",
+    75: "great",
+    40: "good",
+    10: "inaccuracy",
+    0: "mistake",
+    -25: "blunder",
+}
+
 
 def points_for_regret(delta: float) -> int:
     if delta <= TIE_EPSILON:

@@ -7,7 +7,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~1-4min, 159 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 165 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
@@ -55,6 +55,14 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   records into Form/Skills/Leaks/Cost cards. `/api/dashboard` (30s
   cache), `/api/next?phase=` drill filter. Coach-override and
   placement-lab leak types are absent (nullable) until those specs ship.
+- **Coach mode (COACH_SPEC.md) shipped**: `PlaySession.submit()` gates
+  every human play-mode action through a coach `MCTSEngine` (same
+  checkpoint as the bot, judged from the human's info set); a move over
+  the severity threshold bounces with state UNCHANGED (no dice thrown, no
+  cards stolen), "play it anyway" applies it with a `verdict`/`coached`
+  event tag; every non-flagged move gets the same verdict as a free
+  passive badge. `coach_set` on `/api/play/act`, `?coach=` on
+  `/api/play/new`. `🎓 Coach` badge + interjection card in the UI.
 - Play mode records every game to `data/games/` (replayable logs) — the
   foundation review stands on.
 - `docs/EXECUTION_INDEX.md` orders all forward work; each feature has a
@@ -95,5 +103,5 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Explanatory strings shown to users derive ONLY from computed facts —
   no vibes (see EXPLAIN_SPEC honesty rules; same contract in lab,
   dashboard, coach specs).
-- Tests are the porting/refactor contract: 159 passing, spec-mapped
+- Tests are the porting/refactor contract: 165 passing, spec-mapped
   files per feature (`tests/test_<feature>.py`).

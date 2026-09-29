@@ -20,24 +20,13 @@ from search import MCTSEngine
 from .actions import describe_move
 from .play import _label, action_from_dict
 from .service import board_state
-from puzzles.scoring import points_for_regret
+from puzzles.scoring import VERDICT_FOR_POINTS, points_for_regret
 
 REVIEW_SIMS = 512
 REVIEW_DETS = 6
 _REVIEW_SEED = 909090
 
 _GAMES_DIR = Path("data/games")
-
-# points_for_regret's exact output values (puzzles/scoring.py POINT_BANDS +
-# BEST_POINTS/BLUNDER_POINTS) -> the verdict chip shown in the UI.
-VERDICT_FOR_POINTS = {
-    100: "best",
-    75: "great",
-    40: "good",
-    10: "inaccuracy",
-    0: "mistake",
-    -25: "blunder",
-}
 
 
 def _net(net_path: str | None):

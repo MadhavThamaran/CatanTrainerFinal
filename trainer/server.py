@@ -122,7 +122,8 @@ def make_handler(
                     if play is None:
                         self._json({"error": "play mode not available on this deployment"}, 404)
                         return
-                    self._json(play.new_game())
+                    coach = parse_qs(query).get("coach", ["0"])[0] in ("1", "true")
+                    self._json(play.new_game(coach=coach))
                 elif path == "/api/review/poll":
                     if review is None:
                         self._json({"error": "review not available on this deployment"}, 404)
@@ -165,6 +166,8 @@ def make_handler(
                         req["session"],
                         codec_id=req.get("codec_id"),
                         discard=req.get("discard"),
+                        confirm=bool(req.get("confirm")),
+                        coach_set=req.get("coach_set"),
                     )
                     self._json(result)
                 elif self.path == "/api/review/start":
@@ -236,6 +239,9 @@ def main() -> None:
     ap.add_argument("--review-sims", type=int, default=512,
                      help="post-game review search depth (deeper than play)")
     ap.add_argument("--review-dets", type=int, default=6)
+    ap.add_argument("--coach-sims", type=int, default=160,
+                     help="coach-mode search budget (default: same as the bot's own play)")
+    ap.add_argument("--coach-dets", type=int, default=4)
     args = ap.parse_args()
 
     store = get_store(args.state)
@@ -246,7 +252,10 @@ def main() -> None:
         from .play import PlayService
         from .review import ReviewService
 
-        play = PlayService(net_path=args.bot, sims=args.bot_sims)
+        play = PlayService(
+            net_path=args.bot, sims=args.bot_sims,
+            coach_sims=args.coach_sims, coach_dets=args.coach_dets,
+        )
         review = ReviewService(sims=args.review_sims, dets=args.review_dets)
 
     session_secret = os.environ.get("SESSION_SECRET")

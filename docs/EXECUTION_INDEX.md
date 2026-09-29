@@ -24,7 +24,12 @@ don't re-design. Statuses as of 2026-08-14.
       the review UI (accuracy, verdict chips, win-prob graph, click-a-
       move board replay). (Game recording + replay-integrity test: DONE,
       shipped earlier.)
-- [ ] **COACH_SPEC.md** — pre-move interjection coaching. ~1 day.
+- [x] **COACH_SPEC.md** — pre-move interjection coaching. DONE 2026-09-29:
+      `PlaySession.submit()` gates on a coach `MCTSEngine` (same checkpoint,
+      human's info set); flagged moves bounce with state UNCHANGED, "play
+      it anyway" applies with a verdict badge. `coach_set` toggle on
+      `/api/play/act`, `?coach=1` on `/api/play/new`. `🎓 Coach` badge +
+      interjection card in the UI.
 - [x] **DASHBOARD_SPEC.md** — weakness dashboard. DONE 2026-09-29:
       `trainer/dashboard.py` (Form/Skills/Leaks/Cost cards),
       per-skill Elo in `Ratings`, `/api/dashboard`, phase-filtered

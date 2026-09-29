@@ -66,6 +66,19 @@
             padding: 11px 22px; border-radius: 10px; cursor: pointer; box-shadow: 0 3px 8px rgba(0,0,0,.25); }
   #submit:disabled { background: #9aa0a6; cursor: default; }
   #clear { background: none; border: none; color: #8a7a58; font-size: 20px; cursor: pointer; }
+  /* coach mode (COACH_SPEC) */
+  #coachcard { display: none; flex-direction: column; gap: 8px; margin: 8px 0 6px;
+               background: #fff7ed; border: 2px solid #fb923c; border-radius: 12px;
+               padding: 10px 16px; box-shadow: 0 3px 10px rgba(0,0,0,.3); }
+  #coachtext { font-weight: 700; color: #7c2d12; font-size: 14px; }
+  #coachhint { display: none; font-size: 13px; color: #92400e; }
+  #coachbtns { display: flex; gap: 8px; }
+  #coachbtns button { flex: 1; border: none; border-radius: 9px; padding: 9px 6px;
+                       font-size: 13px; font-weight: 800; cursor: pointer; }
+  #coachthink { background: #e5e7eb; color: #374151; }
+  #coachhintbtn { background: #fde68a; color: #78350f; }
+  #coachanyway { background: #dc2626; color: #fff; }
+  .vchip-sm { font-size: 10px; padding: 1px 7px; margin: 0 0 0 6px; vertical-align: middle; }
   /* sidebar */
   #side { width: 400px; background: #cfe0ec; padding: 12px; display: flex;
           flex-direction: column; gap: 10px; overflow-y: auto; }
@@ -212,6 +225,7 @@
       <button class="tbadge modebtn" id="logoutbtn" style="display:none" onclick="logout()">Log out</button>
       <button class="tbadge modebtn" id="srschip" style="display:none" onclick="startSrsReview()">🔁 Review (0)</button>
       <button class="tbadge modebtn" id="mode-dashboard" onclick="showDashboard()">📈 Progress</button>
+      <button class="tbadge modebtn" id="coachbadge" style="display:none" onclick="toggleCoach()">🎓 Coach: off</button>
     </div>
     <div id="boardwrap"><svg id="board"></svg></div>
     <div id="fxlayer"></div>
@@ -222,6 +236,15 @@
       <span id="stagedlabel">Pick an action, then Submit.</span>
       <button id="clear" title="clear" onclick="clearStaged()" style="margin-left:auto">✕</button>
       <button id="submit" disabled onclick="submitStaged()">Submit action</button>
+    </div>
+    <div id="coachcard">
+      <div id="coachtext"></div>
+      <div id="coachhint"></div>
+      <div id="coachbtns">
+        <button id="coachthink" onclick="coachThinkAgain()">🤔 Think again</button>
+        <button id="coachhintbtn" onclick="coachHint()">💡 Hint</button>
+        <button id="coachanyway" onclick="coachPlayAnyway()">▶️ Play it anyway</button>
+      </div>
     </div>
   </div>
   <div id="side">
@@ -339,6 +362,9 @@ let discardPick = [];           // play mode: resources chosen for a 7-discard
 let AUTH_NAME = null, authMode = "login";
 let SRS_MODE = false;
 let DRILL_PHASE = null;
+let COACH_ON = false;           // COACH_SPEC §2: remembered across new games
+let PENDING_COACH = null;       // {body, info} while an interjection card is up
+try { COACH_ON = localStorage.getItem("coach") === "1"; } catch (e) {}
 
 /* ---- accounts (HOSTING.md step 1) ---- */
 
@@ -553,8 +579,29 @@ function switchMode(m) {
   document.getElementById("mode-play").classList.toggle("active", m === "play");
   document.getElementById("gamelog").style.display = m === "play" ? "block" : "none";
   document.getElementById("pinfo").style.display = m === "play" ? "none" : "";
+  document.getElementById("coachbadge").style.display = m === "play" ? "" : "none";
   document.getElementById("loglines").innerHTML = "";
+  hideCoachCard();
   if (m === "play") loadGame(); else loadNext();
+}
+
+/* ---- coach mode (COACH_SPEC) ---- */
+
+function renderCoachBadge() {
+  const b = document.getElementById("coachbadge");
+  b.textContent = COACH_ON ? "🎓 Coach: on" : "🎓 Coach: off";
+  b.classList.toggle("active", COACH_ON);
+}
+
+async function toggleCoach() {
+  COACH_ON = !COACH_ON;
+  try { localStorage.setItem("coach", COACH_ON ? "1" : "0"); } catch (e) {}
+  renderCoachBadge();
+  if (PZ && PZ.session && !PZ.game_over) {
+    await fetch("/api/play/act", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: PZ.session, coach_set: COACH_ON }) });
+  }
 }
 
 const S = (tag, attrs, parent) => {
@@ -610,9 +657,11 @@ async function loadNext() {
 
 async function loadGame() {
   closeReview();
+  hideCoachCard();
+  renderCoachBadge();
   document.getElementById("prompttext").textContent = "Setting up the board…";
   document.getElementById("loglines").innerHTML = "";
-  const r = await fetch("/api/play/new");
+  const r = await fetch(`/api/play/new?coach=${COACH_ON ? 1 : 0}`);
   const v = await r.json();
   if (v.error) { showFatal(`/api/play/new -> ${v.error}`); return; }
   applyPlayView(v);
@@ -725,8 +774,15 @@ function appendEvents(events) {
   for (const ev of events) {
     const d = document.createElement("div");
     const who = ev.who === "bot" ? "🤖" : "👤";
-    d.innerHTML = `${who} ${emojify(ev.label)}` +
+    let html = `${who} ${emojify(ev.label)}` +
       (ev.roll !== undefined && ev.roll !== null ? ` → <b>${ev.roll}</b>` : "");
+    // Coach mode passive badge (COACH_SPEC §4): every human move gets a
+    // free verdict chip once coach is on, reusing the review card's meta.
+    if (ev.verdict && VERDICT_META[ev.verdict]) {
+      const meta = VERDICT_META[ev.verdict];
+      html += ` <span class="vchip vchip-sm ${ev.verdict}">${meta.icon} ${meta.label}</span>`;
+    }
+    d.innerHTML = html;
     box.appendChild(d);
   }
   box.scrollTop = box.scrollHeight;
@@ -934,7 +990,48 @@ async function playAct(body) {
     body: JSON.stringify({ session: PZ.session, ...body }) });
   const v = await r.json();
   if (v.error) { showFatal(`/api/play/act -> ${v.error}`); return; }
+  if (v.coach) { showCoachCard(body, v.coach); return; }
+  hideCoachCard();
   applyPlayView(v);
+}
+
+function showCoachCard(body, info) {
+  locked = false;
+  PENDING_COACH = { body, info };
+  document.getElementById("stagedbar").style.display = "none";
+  document.getElementById("coachcard").style.display = "flex";
+  document.getElementById("coachtext").textContent =
+    `⚠️ That loses about ${Math.round(info.regret * 100)}% win probability. Want to think again?`;
+  const hint = document.getElementById("coachhint");
+  hint.style.display = "none";
+  hint.textContent = "";
+  document.getElementById("prompttext").textContent = "Your move.";
+}
+
+function hideCoachCard() {
+  document.getElementById("coachcard").style.display = "none";
+  document.getElementById("stagedbar").style.display = "flex";
+  PENDING_COACH = null;
+}
+
+function coachThinkAgain() {
+  hideCoachCard();
+  clearStaged();
+}
+
+function coachHint() {
+  if (!PENDING_COACH) return;
+  const hint = document.getElementById("coachhint");
+  hint.textContent = `Hint: the engine prefers a different ${PENDING_COACH.info.hint_category.replace(/_/g, " ")}.`;
+  hint.style.display = "block";
+}
+
+async function coachPlayAnyway() {
+  if (!PENDING_COACH) return;
+  const body = PENDING_COACH.body;
+  PENDING_COACH = null;
+  document.getElementById("coachcard").style.display = "none";
+  await playAct({ ...body, confirm: true });
 }
 
 function renderSide() {
@@ -1155,7 +1252,7 @@ function renderStaged() {
 async function submitStaged() {
   if (locked) return;
   if (APP_MODE === "play") {
-    if (PZ.discard) { await playAct({ discard: discardPick }); return; }
+    if (PZ.discard) { await playAct({ discard: [...discardPick] }); return; }
     if (!staged) return;
     await playAct({ codec_id: staged.codec_id });
     return;

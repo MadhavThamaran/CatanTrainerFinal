@@ -31,12 +31,20 @@ from engine import (
 from net.codec import encode_action
 from search import MCTSEngine
 
+from puzzles.scoring import VERDICT_FOR_POINTS, points_for_regret
+
 from .actions import describe_move
 from .layout import LAYOUT
 from .service import board_state, context
 
 _MAX_SESSIONS = 8
 _MAX_ACTIONS = 6000
+
+# COACH_SPEC §3: the coach is exactly as strong as the bot's own play
+# budget by default — honest (no unfair omniscience) and fast.
+COACH_SIMS = 160
+COACH_DETS = 4
+COACH_SEVERITY = {"strict": 0.05, "normal": 0.10, "blunders-only": 0.15}
 
 
 _GAMES_DIR = Path("data/games")
@@ -92,8 +100,28 @@ def _label(action, state: GameState, actor: int) -> str:
     return action.type.name.replace("_", " ").title()
 
 
+def _category(action, state: GameState, actor: int) -> str:
+    """Coarse move-kind tag for the coach's spoiler-free hint (COACH_SPEC
+    §2): the codec's own `category` field, or "discard" for the one
+    action type the codec can't express."""
+    cid = encode_action(action)
+    if cid is not None:
+        return describe_move(cid, state, actor)["category"]
+    return "discard"
+
+
 class PlaySession:
-    def __init__(self, sid: str, seed: int, net_path: str, sims: int, dets: int):
+    def __init__(
+        self,
+        sid: str,
+        seed: int,
+        net_path: str,
+        sims: int,
+        dets: int,
+        coach: bool = False,
+        coach_sims: int = COACH_SIMS,
+        coach_dets: int = COACH_DETS,
+    ):
         self.sid = sid
         self.seed = seed
         self.net_path = net_path
@@ -114,19 +142,37 @@ class PlaySession:
             net=net,
         )
         self.bot.begin_game(self.bot_seat)
+        # COACH_SPEC §3: same checkpoint as the bot, judged from the human's
+        # information set — always built (its cost is opt-in via evaluate()
+        # calls, gated by coach_on) so a mid-game toggle-on has an
+        # up-to-date CardTracker instead of a blind one.
+        self.coach_on = coach
+        self.coach_severity = "normal"
+        self.coach_engine = MCTSEngine(
+            simulations=coach_sims,
+            determinizations=coach_dets,
+            seed=seed * 31 + 13,
+            net=net,
+        )
+        self.coach_engine.begin_game(self.human)
+        self._coach_cache: tuple[int, list] | None = None
         self.events: list[dict] = []
         self.n_actions = 0
 
     # --- turn loop ---
 
-    def _apply(self, action, who: str) -> None:
+    def _apply(self, action, who: str, coach_verdict: dict | None = None) -> None:
         actor = self.state.player_to_act()
         label = _label(action, self.state, actor)
         h_before = dict(self.state.players[self.human].resources)
         b_before = dict(self.state.players[self.bot_seat].resources)
         apply_action(self.state, action)
         self.bot.observe(self.state, action)
+        self.coach_engine.observe(self.state, action)
+        self._coach_cache = None   # any application invalidates the cached decision
         ev = {"who": who, "label": label}
+        if coach_verdict is not None:
+            ev.update(coach_verdict)
         mine = actor == self.human
         # Board mutations ride on the event so the client can animate the
         # board piece-by-piece during playback instead of snapping at the end.
@@ -180,6 +226,41 @@ class PlaySession:
         }
         (_GAMES_DIR / f"{self.sid}.json").write_text(json.dumps(record))
 
+    # --- coach mode (COACH_SPEC §3) ---
+
+    def _coach_evals(self):
+        """Cached ranking of the CURRENT decision — keyed by n_actions so
+        any application (including a confirmed coach interjection)
+        invalidates it, but re-picking after "Think again" is instant."""
+        if self._coach_cache is not None and self._coach_cache[0] == self.n_actions:
+            return self._coach_cache[1]
+        evals = self.coach_engine.evaluate(self.state, viewer=self.human)
+        self._coach_cache = (self.n_actions, evals)
+        return evals
+
+    def coach_judge(self, action) -> tuple[float, int]:
+        """(regret, points) of `action` against the coach's ranking of the
+        position it's offered in."""
+        evals = self._coach_evals()
+        chosen = next((e for e in evals if e.action == action), None)
+        regret = max(0.0, evals[0].q - chosen.q) if chosen is not None else 0.0
+        return regret, points_for_regret(regret)
+
+    def coach_interjection(self, action) -> dict | None:
+        """None if `action` clears the severity bar; otherwise the
+        spoiler-free payload the client shows instead of applying it."""
+        regret, _ = self.coach_judge(action)
+        threshold = COACH_SEVERITY[self.coach_severity]
+        if regret < threshold:
+            return None
+        evals = self._coach_evals()
+        best = evals[0].action
+        return {
+            "regret": round(regret, 4),
+            "severity": "blunder" if regret >= COACH_SEVERITY["blunders-only"] else "mistake",
+            "hint_category": _category(best, self.state, self.human),
+        }
+
     def advance(self) -> None:
         """Play until the human faces a real decision or the game ends."""
         while (
@@ -204,22 +285,49 @@ class PlaySession:
 
     # --- human actions ---
 
-    def act_codec(self, codec_id: int) -> bool:
+    def _find_action(self, codec_id: int | None, discard: list[str] | None):
+        if discard is not None:
+            want = Counter(discard)
+            for a in legal_actions(self.state):
+                if a.type is ActionType.DISCARD and Counter(
+                    r.value for r in a.resources
+                ) == want:
+                    return a
+            return None
+        if codec_id is None:
+            return None
         for a in legal_actions(self.state):
             if encode_action(a) == codec_id:
-                self._apply(a, "you")
-                return True
-        return False
+                return a
+        return None
 
-    def act_discard(self, resources: list[str]) -> bool:
-        want = Counter(resources)
-        for a in legal_actions(self.state):
-            if a.type is ActionType.DISCARD and Counter(
-                r.value for r in a.resources
-            ) == want:
-                self._apply(a, "you")
-                return True
-        return False
+    def submit(
+        self,
+        codec_id: int | None = None,
+        discard: list[str] | None = None,
+        confirm: bool = False,
+    ) -> dict:
+        """Find + (coach-gate +) apply a human action.
+
+        `{"illegal": True}` if codec_id/discard didn't match a legal move;
+        `{"coach": {...}}` if coach mode bounced it (state UNCHANGED —
+        COACH_SPEC §1's no-side-effect property); `{"applied": True}` once
+        applied (the passive verdict badge, §4, rides on the event log)."""
+        action = self._find_action(codec_id, discard)
+        if action is None:
+            return {"illegal": True}
+        if self.coach_on and not confirm:
+            interjection = self.coach_interjection(action)
+            if interjection is not None:
+                return {"coach": interjection}
+        verdict = None
+        if self.coach_on:
+            _, points = self.coach_judge(action)
+            verdict = {"verdict": VERDICT_FOR_POINTS[points]}
+            if confirm:
+                verdict["coached"] = "confirmed"
+        self._apply(action, "you", coach_verdict=verdict)
+        return {"applied": True}
 
     # --- presentation ---
 
@@ -283,20 +391,27 @@ class PlayService:
         net_path: str = "checkpoints/gen7.pt",
         sims: int = 160,
         dets: int = 4,
+        coach_sims: int = COACH_SIMS,
+        coach_dets: int = COACH_DETS,
     ):
         self.net_path = net_path
         self.sims = sims
         self.dets = dets
+        self.coach_sims = coach_sims
+        self.coach_dets = coach_dets
         self._sessions: dict[str, PlaySession] = {}
         self._lock = threading.Lock()
         self._rng = random.Random()
 
-    def new_game(self, seed: int | None = None) -> dict:
+    def new_game(self, seed: int | None = None, coach: bool = False) -> dict:
         with self._lock:
             if seed is None:
                 seed = self._rng.randrange(300_000, 400_000)
             sid = f"g{seed}-{self._rng.randrange(1 << 30):08x}"
-            s = PlaySession(sid, seed, self.net_path, self.sims, self.dets)
+            s = PlaySession(
+                sid, seed, self.net_path, self.sims, self.dets,
+                coach=coach, coach_sims=self.coach_sims, coach_dets=self.coach_dets,
+            )
             self._sessions[sid] = s
             while len(self._sessions) > _MAX_SESSIONS:
                 self._sessions.pop(next(iter(self._sessions)))
@@ -308,23 +423,35 @@ class PlayService:
         sid: str,
         codec_id: int | None = None,
         discard: list[str] | None = None,
+        confirm: bool = False,
+        coach_set: bool | None = None,
     ) -> dict:
         with self._lock:
             s = self._sessions.get(sid)
             if s is None:
                 return {"error": "unknown or expired session — start a new game"}
+            if coach_set is not None:
+                # Toggle only (COACH_SPEC §3): evaluations simply start/stop
+                # from here on — the CardTracker stays caught up either way
+                # since `_apply` observes it unconditionally.
+                s.coach_on = bool(coach_set)
+                return s.view()
             if s.state.phase is Phase.GAME_OVER:
                 return {"error": "game is over"}
             if s.state.player_to_act() != s.human:
                 return {"error": "not your turn"}
-            ok = (
-                s.act_discard(discard) if discard is not None
-                else s.act_codec(int(codec_id)) if codec_id is not None
-                else False
+            result = s.submit(
+                codec_id=int(codec_id) if codec_id is not None else None,
+                discard=discard,
+                confirm=confirm,
             )
-            if not ok:
+            if result.get("illegal"):
                 v = s.view()
                 v["illegal"] = True
+                return v
+            if "coach" in result:
+                v = s.view()
+                v["coach"] = result["coach"]
                 return v
             s.advance()
             return s.view()
