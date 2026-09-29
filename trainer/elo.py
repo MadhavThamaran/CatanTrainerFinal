@@ -36,6 +36,7 @@ class Ratings:
         self.puzzles: dict = d.get("puzzles", {})   # pid -> {rating, attempts, best_points}
         self.history: list = d.get("history", [])
         self.srs: dict = d.get("srs", {})   # pid -> {box, due, lapses, added} (SRS_SPEC)
+        self.skill: dict = d.get("skill", {})   # phase -> rating (DASHBOARD_SPEC §0)
 
     # --- persistence ---
 
@@ -47,6 +48,7 @@ class Ratings:
                 "puzzles": self.puzzles,
                 "history": self.history[-2000:],
                 "srs": self.srs,
+                "skill": self.skill,
             },
         )
 
@@ -83,8 +85,13 @@ class Ratings:
         if rated:
             s = max(0.0, min(1.0, points / 100.0))
             e = expected(self.user, entry["rating"])
-            self.user += USER_K * (s - e)
-            entry["rating"] -= PUZZLE_K * (s - e)
+            delta = s - e
+            self.user += USER_K * delta
+            entry["rating"] -= PUZZLE_K * delta
+            if phase is not None:
+                # Same (s - expected) delta as the global update, applied to
+                # that phase's own pool (DASHBOARD_SPEC §0 per-skill Elo).
+                self.skill[phase] = self.skill.get(phase, INITIAL_USER) + USER_K * delta
         entry["attempts"] += 1
         if entry["best_points"] is None or points > entry["best_points"]:
             entry["best_points"] = points
@@ -96,6 +103,7 @@ class Ratings:
                 "phase": phase,
                 "regret": regret,
                 "puzzle_rating": round(entry["rating"], 1),
+                "user_rating": round(self.user, 1),
                 "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             }
         )
@@ -109,9 +117,13 @@ class Ratings:
 
     # --- selection ---
 
-    def pick(self, puzzles: list, rng: random.Random) -> "object":
+    def pick(self, puzzles: list, rng: random.Random, phase: str | None = None) -> "object":
         """Choose the next puzzle: phase mixture, then rating proximity,
-        preferring puzzles never attempted (or never solved perfectly)."""
+        preferring puzzles never attempted (or never solved perfectly).
+
+        `phase` (DASHBOARD_SPEC §3 "Drill this") restricts the pool to one
+        tag and drops the placement mixture — a deliberate, requested
+        narrowing, not the default session."""
         def eligible(pool):
             fresh = [p for p in pool if p.id not in self.puzzles]
             if fresh:
@@ -124,18 +136,24 @@ class Ratings:
             ]
             return imperfect or pool
 
-        placement = [p for p in puzzles if p.phase == "placement"]
-        rest = [p for p in puzzles if p.phase != "placement"]
-        if placement and (not rest or rng.random() < PLACEMENT_SHARE):
-            pool = eligible(placement)
-        else:
-            pool = eligible(rest or placement)
-
         def proximity(p):
             r = self.puzzles.get(p.id, {}).get(
                 "rating", INITIAL_BY_DIFFICULTY.get(p.difficulty, 1550.0)
             )
             return abs(r - self.user)
+
+        if phase is not None:
+            matching = [p for p in puzzles if p.phase == phase]
+            # No puzzle of this phase in the pool: fall back to unfiltered
+            # rather than crash on an empty choice.
+            pool = eligible(matching) if matching else eligible(puzzles)
+        else:
+            placement = [p for p in puzzles if p.phase == "placement"]
+            rest = [p for p in puzzles if p.phase != "placement"]
+            if placement and (not rest or rng.random() < PLACEMENT_SHARE):
+                pool = eligible(placement)
+            else:
+                pool = eligible(rest or placement)
 
         pool = sorted(pool, key=proximity)[:8]
         return rng.choice(pool)

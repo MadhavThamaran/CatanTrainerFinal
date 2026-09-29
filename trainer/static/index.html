@@ -172,19 +172,46 @@
   #authtoggle a { color: #2563eb; cursor: pointer; font-weight: 700; }
   #autherr { color: #b91c1c; font-size: 13px; margin: -4px 0 10px; min-height: 16px; }
   #userbadge { cursor: default; }
+  /* weakness dashboard */
+  #dashboardoverlay { display: none; position: fixed; inset: 0; background: #cfe0ec;
+                       z-index: 40; overflow-y: auto; }
+  #dashboardinner { max-width: 900px; margin: 0 auto; padding: 60px 20px 40px; }
+  #dashboardback { position: fixed; top: 12px; left: 16px; z-index: 41; }
+  .dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .dgrid { grid-template-columns: 1fr; } }
+  .dcard { background: #f7f1df; border-radius: 14px; padding: 16px 18px;
+           box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+  .dcard h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase;
+              letter-spacing: .6px; color: #8a7a58; }
+  .dbig { font-size: 32px; font-weight: 900; color: #2d2418; }
+  .dsub { font-size: 12px; color: #8a7a58; margin-top: 2px; }
+  .dempty { color: #8a7a58; font-size: 13px; font-style: italic; }
+  .skillbar-row { display: flex; align-items: center; gap: 8px; margin: 7px 0; font-size: 12.5px; }
+  .skillbar-label { width: 78px; flex-shrink: 0; text-transform: capitalize; color: #5d4f33; }
+  .skillbar-track { flex: 1; height: 12px; background: #e9e2cd; border-radius: 6px; overflow: hidden; position: relative; }
+  .skillbar-fill { height: 100%; border-radius: 6px; }
+  .skillbar-n { width: 46px; text-align: right; flex-shrink: 0; color: #8a7a58; }
+  .leak-row { padding: 8px 0; border-bottom: 1px solid #e2d7b8; font-size: 13px; color: #4a3b23; }
+  .leak-row:last-child { border-bottom: none; }
+  .leak-drill { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 800;
+                color: #2563eb; cursor: pointer; }
+  .cost-stage { display: flex; justify-content: space-between; font-size: 12.5px;
+                padding: 3px 0; color: #5d4f33; }
+  .trend-up { color: #15803d; } .trend-down { color: #b91c1c; } .trend-flat { color: #8a7a58; }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="boardside">
     <div id="topbadges">
-      <button class="tbadge modebtn active" id="mode-trainer" onclick="SRS_MODE=false; switchMode('trainer')">🧩 Trainer</button>
+      <button class="tbadge modebtn active" id="mode-trainer" onclick="SRS_MODE=false; DRILL_PHASE=null; switchMode('trainer')">🧩 Trainer</button>
       <button class="tbadge modebtn" id="mode-play" onclick="switchMode('play')">⚔️ Play the bot</button>
       <span class="tbadge" id="counter">puzzle 0</span>
       <span class="tbadge" id="pinfo">–</span>
       <span class="tbadge" id="userbadge" style="display:none">–</span>
       <button class="tbadge modebtn" id="logoutbtn" style="display:none" onclick="logout()">Log out</button>
       <button class="tbadge modebtn" id="srschip" style="display:none" onclick="startSrsReview()">🔁 Review (0)</button>
+      <button class="tbadge modebtn" id="mode-dashboard" onclick="showDashboard()">📈 Progress</button>
     </div>
     <div id="boardwrap"><svg id="board"></svg></div>
     <div id="fxlayer"></div>
@@ -244,6 +271,17 @@
     <div id="authtoggle">Need an account? <a onclick="switchAuthMode('signup')">Sign up</a></div>
   </div>
 </div>
+<div id="dashboardoverlay">
+  <button class="tbadge modebtn" id="dashboardback" onclick="hideDashboard()">← Back</button>
+  <div id="dashboardinner">
+    <div class="dgrid">
+      <div class="dcard" id="dcard-form"><h3>Form</h3><div id="dform"></div></div>
+      <div class="dcard" id="dcard-skills"><h3>Skills</h3><div id="dskills"></div></div>
+      <div class="dcard" id="dcard-leaks"><h3>Leaks</h3><div id="dleaks"></div></div>
+      <div class="dcard" id="dcard-cost"><h3>Cost</h3><div id="dcost"></div></div>
+    </div>
+  </div>
+</div>
 <script>
 function showFatal(text) {
   let el = document.getElementById("fatal");
@@ -300,6 +338,7 @@ let APP_MODE = "trainer";       // "trainer" | "play"
 let discardPick = [];           // play mode: resources chosen for a 7-discard
 let AUTH_NAME = null, authMode = "login";
 let SRS_MODE = false;
+let DRILL_PHASE = null;
 
 /* ---- accounts (HOSTING.md step 1) ---- */
 
@@ -338,6 +377,123 @@ function startSrsReview() {
   // double fetch by only calling it directly when already in trainer mode.
   if (APP_MODE !== "trainer") switchMode("trainer");
   else loadNext();
+}
+
+/* ---- weakness dashboard (DASHBOARD_SPEC) ---- */
+
+const RATING_BAR_LO = 1000, RATING_BAR_HI = 2000;
+
+async function showDashboard() {
+  document.getElementById("dashboardoverlay").style.display = "block";
+  let r, v;
+  try { r = await fetch("/api/dashboard"); v = await r.json(); }
+  catch (e) { showFatal(`/api/dashboard -> ${e}`); return; }
+  if (r.status === 401) { hideDashboard(); showAuthCard(); return; }
+  if (!r.ok) { showFatal(`/api/dashboard -> ${v.error || r.status}`); return; }
+  renderDashboard(v);
+}
+
+function hideDashboard() {
+  document.getElementById("dashboardoverlay").style.display = "none";
+}
+
+function renderDashboard(d) {
+  renderDformCard(d.form);
+  renderDskillsCard(d.skills);
+  renderDleaksCard(d.leaks);
+  renderDcostCard(d.cost);
+}
+
+function renderDformCard(form) {
+  const el = document.getElementById("dform");
+  let html = `<div class="dbig">${Math.round(form.user_rating)}</div><div class="dsub">puzzle rating</div>`;
+  if (form.sparkline && form.sparkline.length > 1) {
+    const W = 260, H = 40;
+    const lo = Math.min(...form.sparkline), hi = Math.max(...form.sparkline);
+    const span = Math.max(1, hi - lo);
+    const pts = form.sparkline.map((v, i) => {
+      const x = (i / (form.sparkline.length - 1)) * W;
+      const y = H - ((v - lo) / span) * H;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+    html += `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:40px;margin:6px 0">
+      <polyline points="${pts}" fill="none" stroke="#2563eb" stroke-width="2"/></svg>`;
+  }
+  html += form.games
+    ? `<div class="dsub">vs bot: ${form.games.wins}W ${form.games.losses}L ${form.games.draws}D (${form.games.total} games)</div>`
+    : `<div class="dempty">Play a few games vs the bot to see W/L here.</div>`;
+  html += form.review_accuracy_trend
+    ? `<div class="dsub">review accuracy (last ${form.review_accuracy_trend.n}): ${form.review_accuracy_trend.mean}%</div>`
+    : `<div class="dempty">Review a game to see your accuracy trend.</div>`;
+  el.innerHTML = html;
+}
+
+function renderDskillsCard(skills) {
+  const el = document.getElementById("dskills");
+  el.innerHTML = "";
+  for (const s of skills) {
+    const row = document.createElement("div");
+    row.className = "skillbar-row";
+    const pct = s.rating != null
+      ? Math.max(2, Math.min(100, ((s.rating - RATING_BAR_LO) / (RATING_BAR_HI - RATING_BAR_LO)) * 100))
+      : 0;
+    const color = s.rating == null ? "#c9bd9c" : !s.confident ? "#f5c211" : "#2563eb";
+    row.innerHTML = `<span class="skillbar-label">${s.phase}</span>
+      <span class="skillbar-track"><span class="skillbar-fill" style="width:${pct}%;background:${color}"></span></span>
+      <span class="skillbar-n">${s.rating != null ? Math.round(s.rating) : "–"} (${s.n})</span>`;
+    el.appendChild(row);
+  }
+}
+
+function renderDleaksCard(leaks) {
+  const el = document.getElementById("dleaks");
+  el.innerHTML = "";
+  for (const l of leaks) {
+    const row = document.createElement("div");
+    row.className = "leak-row";
+    let drillHtml = "";
+    if (l.drill && l.drill.type === "trainer") {
+      drillHtml = `<div class="leak-drill" onclick="startPhaseDrill('${l.drill.phase}')">Drill this →</div>`;
+    } else if (l.drill && l.drill.type === "review") {
+      drillHtml = `<div class="leak-drill" onclick="startReviewDrill()">Play &amp; review →</div>`;
+    }
+    row.innerHTML = `${l.statement}${drillHtml}`;
+    el.appendChild(row);
+  }
+}
+
+function renderDcostCard(cost) {
+  const el = document.getElementById("dcost");
+  if (!cost) {
+    el.innerHTML = '<div class="dempty">Review some games to see where you leak win probability.</div>';
+    return;
+  }
+  const trendIcon = cost.trend === "improving" ? '<span class="trend-up">↑ improving</span>'
+    : cost.trend === "worsening" ? '<span class="trend-down">↓ worsening</span>'
+    : cost.trend ? '<span class="trend-flat">→ flat</span>' : "";
+  let html = `<div class="dbig">${(cost.mean_regret * 100).toFixed(1)}%</div>
+    <div class="dsub">mean win-prob leaked per move (last ${cost.n_games} reviewed games) ${trendIcon}</div>`;
+  const order = ["setup", "early", "mid", "endgame"];
+  for (const stage of order) {
+    if (!(stage in cost.by_stage)) continue;
+    html += `<div class="cost-stage"><span>${stage}</span><span>${(cost.by_stage[stage] * 100).toFixed(1)}%</span></div>`;
+  }
+  el.innerHTML = html;
+}
+
+function startPhaseDrill(phase) {
+  hideDashboard();
+  DRILL_PHASE = phase;
+  SRS_MODE = false;
+  if (APP_MODE !== "trainer") switchMode("trainer");
+  else loadNext();
+}
+
+function startReviewDrill() {
+  hideDashboard();
+  switchMode("play");
+  document.getElementById("prompttext").textContent =
+    "Play a game, then hit 📊 Review game when it's over — that's how you fix this.";
 }
 
 function showAuthCard() {
@@ -390,7 +546,7 @@ async function logout() {
 
 function switchMode(m) {
   if (m === APP_MODE) return;
-  if (m === "play") SRS_MODE = false;
+  if (m === "play") { SRS_MODE = false; DRILL_PHASE = null; }
   closeReview();
   APP_MODE = m;
   document.getElementById("mode-trainer").classList.toggle("active", m === "trainer");
@@ -411,7 +567,8 @@ const scalePts = (ids, V, cx, cy, k) =>
 const emojify = s => s.replace(/\b(wood|brick|sheep|wheat|ore)\b/g, m => `${RESICON[m]} ${m}`);
 
 async function loadNext() {
-  const endpoint = SRS_MODE ? "/api/srs/next" : "/api/next";
+  const endpoint = SRS_MODE ? "/api/srs/next"
+    : DRILL_PHASE ? `/api/next?phase=${encodeURIComponent(DRILL_PHASE)}` : "/api/next";
   let r;
   for (let attempt = 0; attempt < 3; attempt++) {   // survive transient hiccups
     try { r = await fetch(endpoint); break; }
@@ -435,6 +592,8 @@ async function loadNext() {
     SRS_MODE ? `review ${PZ.srs_queue} left` : "puzzle " + count;
   document.getElementById("pinfo").textContent = SRS_MODE
     ? "🔁 seen this before? good — prove it."
+    : DRILL_PHASE
+    ? `🎯 drilling ${DRILL_PHASE} · puzzle rating ${PZ.puzzle_rating.toFixed(0)}`
     : `${PZ.difficulty} ${PZ.phase} · puzzle rating ${PZ.puzzle_rating.toFixed(0)}`;
   document.getElementById("prompttext").textContent = PZ.prompt;
   document.getElementById("result").style.display = "none";

@@ -94,7 +94,14 @@ def make_handler(
                     if uid is None:
                         self._json({"error": "unauthenticated"}, 401)
                         return
-                    self._json(service.next_puzzle(uid))
+                    phase = parse_qs(query).get("phase", [None])[0]
+                    self._json(service.next_puzzle(uid, phase=phase))
+                elif path == "/api/dashboard":
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    self._json(service.dashboard(uid))
                 elif path == "/api/srs/summary":
                     uid = _user_id(self)
                     if uid is None:

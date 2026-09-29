@@ -8,14 +8,18 @@ or the best move in the presentation payload.
 from __future__ import annotations
 
 import random
+import time
 
 from engine import Building, DevCard, GameState, Phase, Resource
 from puzzles import load_puzzles, score_move
 
+from . import dashboard as dashboard_module
 from . import srs
 from .actions import describe_move
 from .elo import Ratings
 from .layout import LAYOUT
+
+_DASHBOARD_TTL = 30.0
 
 _PROMPTS = {
     "placement": "Setup draft: place your settlement.",
@@ -37,6 +41,7 @@ class TrainerService:
         self._rng = random.Random(seed)
         self._last_id: dict[int, str] = {}
         self._ratings_cache: dict[int, Ratings] = {}
+        self._dashboard_cache: dict[int, tuple[float, dict]] = {}
 
     def ratings_for(self, user_id: int) -> Ratings:
         r = self._ratings_cache.get(user_id)
@@ -46,11 +51,20 @@ class TrainerService:
 
     # --- presentation ---
 
-    def next_puzzle(self, user_id: int) -> dict:
+    def dashboard(self, user_id: int) -> dict:
+        cached = self._dashboard_cache.get(user_id)
+        now = time.time()
+        if cached is not None and now - cached[0] < _DASHBOARD_TTL:
+            return cached[1]
+        payload = dashboard_module.build(self.ratings_for(user_id))
+        self._dashboard_cache[user_id] = (now, payload)
+        return payload
+
+    def next_puzzle(self, user_id: int, phase: str | None = None) -> dict:
         ratings = self.ratings_for(user_id)
         last = self._last_id.get(user_id)
         pool = [p for p in self.puzzles if p.id != last] or self.puzzles
-        puzzle = ratings.pick(pool, self._rng)
+        puzzle = ratings.pick(pool, self._rng, phase=phase)
         self._last_id[user_id] = puzzle.id
         return self.present(puzzle.id, user_id)
 

@@ -7,7 +7,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~1-4min, 144 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 159 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
@@ -50,6 +50,11 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   rated trainer misses (<75 pts), stored in the same per-user ratings
   blob. `/api/srs/summary`, `/api/srs/next`, `srs:true` on `/api/submit`
   (scored for display, never touches Elo). Header chip `🔁 Review (N)`.
+- **Weakness dashboard (DASHBOARD_SPEC.md) shipped**: `trainer/dashboard.py`
+  aggregates per-skill Elo (`Ratings.skill`, new), play-mode game/review
+  records into Form/Skills/Leaks/Cost cards. `/api/dashboard` (30s
+  cache), `/api/next?phase=` drill filter. Coach-override and
+  placement-lab leak types are absent (nullable) until those specs ship.
 - Play mode records every game to `data/games/` (replayable logs) — the
   foundation review stands on.
 - `docs/EXECUTION_INDEX.md` orders all forward work; each feature has a
@@ -90,5 +95,5 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Explanatory strings shown to users derive ONLY from computed facts —
   no vibes (see EXPLAIN_SPEC honesty rules; same contract in lab,
   dashboard, coach specs).
-- Tests are the porting/refactor contract: 144 passing, spec-mapped
+- Tests are the porting/refactor contract: 159 passing, spec-mapped
   files per feature (`tests/test_<feature>.py`).

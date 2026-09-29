@@ -25,8 +25,11 @@ don't re-design. Statuses as of 2026-08-14.
       move board replay). (Game recording + replay-integrity test: DONE,
       shipped earlier.)
 - [ ] **COACH_SPEC.md** — pre-move interjection coaching. ~1 day.
-- [ ] **DASHBOARD_SPEC.md** — weakness dashboard. ~1 day after review
-      exists (attempt-log enrichment: DONE, shipped).
+- [x] **DASHBOARD_SPEC.md** — weakness dashboard. DONE 2026-09-29:
+      `trainer/dashboard.py` (Form/Skills/Leaks/Cost cards),
+      per-skill Elo in `Ratings`, `/api/dashboard`, phase-filtered
+      `/api/next?phase=`, "📈 Progress" UI. Coach-override and
+      placement-lab leak types stay absent (nullable) until those ship.
 - [ ] **EXPLAIN_SPEC.md** — facts-based explanations + annotate the
       existing 3,413 puzzles. ~1 day. Upgrades review/coach/lab output
       wherever it lands earlier.
