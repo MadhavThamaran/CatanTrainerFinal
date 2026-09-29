@@ -10,5 +10,15 @@ runs at request time.
 from .elo import Ratings, expected
 from .layout import LAYOUT
 from .service import TrainerService
+from .store import JsonStore, PgStore, Store, get_store
 
-__all__ = ["LAYOUT", "Ratings", "TrainerService", "expected"]
+__all__ = [
+    "LAYOUT",
+    "JsonStore",
+    "PgStore",
+    "Ratings",
+    "Store",
+    "TrainerService",
+    "expected",
+    "get_store",
+]

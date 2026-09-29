@@ -5,6 +5,14 @@ account and build a persistent rating. Written to be executed step-by-step
 (by you + a coding model); decisions are already made — follow them unless
 something has genuinely changed.
 
+**Status (2026-09-28): Step 1 (accounts layer) is done** — `trainer/store.py`
+(`JsonStore`/`PgStore`), `trainer/auth.py` (scrypt + signed cookies),
+`Ratings`/`TrainerService` parameterized per-user, signup/login/logout
+endpoints, login card in the UI, `--host`/`--no-play` flags, torch moved
+to the `play` optional-extra. Tests: `tests/test_hosting.py` (9 tests) +
+updated `tests/test_trainer.py`. **Steps 2–3 (Neon + Render signup/deploy)
+are manual browser steps for a human** — not yet done.
+
 ## Architecture decisions (made, with reasons)
 
 - **Deploy the TRAINER only.** At serve time it is pure lightweight Python
@@ -75,11 +83,13 @@ copy the connection string (looks like
 
 1. render.com → sign up with the personal GitHub → New → Web Service →
    pick the `catan-trainer` repo.
-2. Runtime: Python. Build command: `pip install uv && uv sync --frozen`.
+2. Runtime: Python. Build command: `pip install uv && uv sync --frozen --no-dev`
+   (`--no-dev` is load-bearing — the `dev` group carries torch/numpy/
+   playwright/pytest for local development; skipping it plus passing
+   `--no-play` at start keeps the Render build to psycopg + stdlib).
    Start command:
-   `uv run python -m trainer.server --port $PORT --host 0.0.0.0`
-   (add `--host` support to `server.py` — it currently binds 127.0.0.1;
-   one argparse line + pass-through).
+   `uv run python -m trainer.server --port $PORT --host 0.0.0.0 --no-play`
+   (`--host`/`--no-play` are real flags on `server.py` now — done).
 3. Environment: `DATABASE_URL` = the Neon string;
    `SESSION_SECRET` = output of `python -c "import secrets;print(secrets.token_hex(32))"`.
 4. Instance type: Free. Deploy. The service appears at
@@ -87,19 +97,18 @@ copy the connection string (looks like
 5. Check: signup, solve a puzzle, redeploy, log in again — rating
    survived (it's in Neon, not on the instance).
 
-Dependency note: `pyproject.toml` currently has torch as a dependency for
-the net; the trainer itself doesn't import torch unless play mode starts.
-Either make torch an optional extra (`[project.optional-dependencies]
-play = ["torch"]`) so the Render build stays slim, or guard the
-`PlayService` import in `server.py` behind a `--no-play` flag for the
-hosted deployment. Prefer the optional-extra route.
+Dependency note (done): torch lives in `[project.optional-dependencies]
+play` (`uv sync --extra play` to add it back for the paid play-mode VM,
+`docs/HOSTING.md`'s "Play mode later" section) rather than in the base
+install, so the slim Render build never downloads it.
 
 ## Play mode later (optional, ~$5/mo)
 
 A Hetzner CX22 / Fly.io shared-1x-1GB machine runs the full server
-(torch CPU) fine for a handful of concurrent games. Same repo, same start
-command without `--no-play`, checkpoint shipped in the repo. Not free;
-defer until the puzzle trainer has users who ask for it.
+(torch CPU) fine for a handful of concurrent games. Same repo; build with
+`uv sync --frozen --no-dev --extra play` (pulls the CPU-only torch wheel
+via the `play` extra) and start without `--no-play`, checkpoint shipped in
+the repo. Not free; defer until the puzzle trainer has users who ask for it.
 
 ## Costs summary
 GitHub free, Neon free (0.5 GB ≫ needed), Render free (with idle sleep).

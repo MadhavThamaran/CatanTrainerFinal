@@ -100,6 +100,10 @@ def _loss(model, X, target, mask, value_t, aux_t):
     return policy_loss, value_loss, aux_loss
 
 
+def _default_device() -> str:
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
 def train(
     data_path: str | list[str],
     out_path: str,
@@ -115,8 +119,12 @@ def train(
     init_from: str | None = None,
     augment: bool = True,
     board_blind_value: bool = False,
+    device: str | None = None,
 ) -> dict:
+    device = device or _default_device()
     torch.manual_seed(seed)
+    if device == "cuda":
+        torch.cuda.manual_seed_all(seed)
     data = _Data(data_path)
     rng = np.random.default_rng(seed)
     n_val = min(max(64, data.n // 20), max(1, data.n // 4))
@@ -155,14 +163,25 @@ def train(
         )
         cfg["board_blind_value"] = board_blind_value
         model = build_model(cfg)
+    model = model.to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+
+    def _to_device(batch):
+        X, t, m, v, a = batch
+        return (
+            X.to(device),
+            t.to(device),
+            m.to(device),
+            v.to(device),
+            a.to(device) if a is not None else None,
+        )
 
     def val_loss() -> tuple[float, float]:
         model.eval()
         with torch.no_grad():
             pl, vl, chunks = 0.0, 0.0, 0
             for s in range(0, len(val_ids), 1024):
-                X, t, m, v, a = data.batch(val_ids[s : s + 1024])
+                X, t, m, v, a = _to_device(data.batch(val_ids[s : s + 1024]))
                 p, val, _ = _loss(model, X, t, m, v, a)
                 pl += float(p)
                 vl += float(val)
@@ -177,7 +196,7 @@ def train(
         for s in range(0, len(train_ids), batch_size):
             ids = train_ids[s : s + batch_size]
             syms = rng.integers(0, 12, size=len(ids)) if augment else None
-            X, t, m, v, a = data.batch(ids, syms)
+            X, t, m, v, a = _to_device(data.batch(ids, syms))
             policy_loss, value_loss, aux_loss = _loss(model, X, t, m, v, a)
             loss = policy_loss + value_loss + AUX_WEIGHT * aux_loss
             opt.zero_grad()
@@ -196,6 +215,7 @@ def train(
 
     if best_state is not None:
         model.load_state_dict(best_state)
+    model = model.cpu()
     save_checkpoint(model, out_path)
     print(f"wrote {out_path} (best val loss {best:.4f}, {data.n} samples)")
     return {"best_val": best, "samples": data.n, "history": history}
@@ -219,7 +239,15 @@ def main() -> None:
         action="store_true",
         help="value/aux heads read board-blind features (memorization fix)",
     )
+    ap.add_argument(
+        "--device",
+        default=None,
+        choices=("cpu", "cuda"),
+        help="default: cuda if available, else cpu",
+    )
     args = ap.parse_args()
+    device = args.device or _default_device()
+    print(f"training on device: {device}", flush=True)
     train(
         args.data,
         args.out,
@@ -233,6 +261,7 @@ def main() -> None:
         init_from=args.init_from,
         augment=not args.no_augment,
         board_blind_value=args.board_blind_value,
+        device=device,
     )
 
 

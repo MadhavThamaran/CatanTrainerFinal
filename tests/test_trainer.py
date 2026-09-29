@@ -9,7 +9,7 @@ import pytest
 from engine import GameState, legal_actions
 from helpers import give, make_main_state, put_city, put_settlement
 from puzzles import label_candidate
-from trainer import LAYOUT, Ratings, TrainerService, expected
+from trainer import LAYOUT, JsonStore, Ratings, TrainerService, expected
 from trainer.actions import describe_move
 
 
@@ -56,7 +56,8 @@ def test_elo_expected_and_first_attempt_only(tmp_path):
     assert abs(expected(1500, 1500) - 0.5) < 1e-9
     assert expected(1700, 1500) > 0.7
 
-    r = Ratings(tmp_path / "s.json")
+    store = JsonStore(tmp_path / "s.json")
+    r = Ratings(store, user_id=1)
     before = r.user
     upd = r.record("p1", "medium", 100)
     assert upd["rated"] and r.user > before          # solved -> rating up
@@ -66,9 +67,13 @@ def test_elo_expected_and_first_attempt_only(tmp_path):
     upd3 = r.record("p2", "hard", -25)
     assert upd3["rated"] and r.user < mid            # blunder -> rating down
     # persistence round trip
-    r2 = Ratings(tmp_path / "s.json")
+    r2 = Ratings(store, user_id=1)
     assert abs(r2.user - r.user) < 1e-9
     assert r2.puzzles["p1"]["attempts"] == 2
+
+    # a different user in the same store gets an independent pool
+    r3 = Ratings(store, user_id=2)
+    assert r3.user == 1500.0 and r3.puzzles == {}
 
 
 # --- service (uses a real labeled puzzle) ---
@@ -99,16 +104,16 @@ def test_next_puzzle_stable_after_viewing_without_solving(tmp_path):
     # Viewing a puzzle creates a rating entry with best_points=None; the
     # selector must not crash on it (regression: None < 100 TypeError).
     path, _ = _puzzle_file(tmp_path)
-    svc = TrainerService(path, str(tmp_path / "state.json"), seed=3)
+    svc = TrainerService(path, JsonStore(tmp_path / "state.json"), seed=3)
     for _ in range(10):
-        p = svc.next_puzzle()          # view only, never submit
+        p = svc.next_puzzle(1)          # view only, never submit
         assert p["puzzle_id"]
 
 
 def test_service_presentation_hides_answers(tmp_path):
     path, puzzle = _puzzle_file(tmp_path)
-    svc = TrainerService(path, str(tmp_path / "state.json"), seed=1)
-    payload = svc.next_puzzle()
+    svc = TrainerService(path, JsonStore(tmp_path / "state.json"), seed=1)
+    payload = svc.next_puzzle(1)
     assert payload["puzzle_id"] == puzzle.id
     blob = json.dumps(payload)
     assert '"q"' not in blob and '"points"' not in blob
@@ -127,9 +132,9 @@ def test_service_presentation_hides_answers(tmp_path):
 
 def test_service_submit_scores_and_rates(tmp_path):
     path, puzzle = _puzzle_file(tmp_path)
-    svc = TrainerService(path, str(tmp_path / "state.json"), seed=1)
-    svc.next_puzzle()
-    res = svc.submit(puzzle.id, puzzle.best_codec_id)
+    svc = TrainerService(path, JsonStore(tmp_path / "state.json"), seed=1)
+    svc.next_puzzle(1)
+    res = svc.submit(puzzle.id, puzzle.best_codec_id, 1)
     assert res["points"] == 100
     assert res["rating"]["rated"]
     assert res["rating"]["user_after"] > res["rating"]["user_before"]
@@ -137,10 +142,10 @@ def test_service_submit_scores_and_rates(tmp_path):
     assert len(best_rows) == 1 and best_rows[0]["chosen"]
     # resubmission: scored but unrated
     worst = max(res["table"], key=lambda m: m["rank"])
-    res2 = svc.submit(puzzle.id, worst["codec_id"])
+    res2 = svc.submit(puzzle.id, worst["codec_id"], 1)
     assert not res2["rating"]["rated"]
     # An action that isn't legal here is softly rejected (not scored/rated).
-    assert svc.submit(puzzle.id, -1) == {"illegal": True}
+    assert svc.submit(puzzle.id, -1, 1) == {"illegal": True}
 
 
 def _placement_puzzle_file(tmp_path):
@@ -166,28 +171,28 @@ def test_placement_followup_composite_scoring(tmp_path):
     worst_road = fu["moves"][-1]["codec_id"]
 
     # best settlement + best road -> full credit, road table present
-    svc = TrainerService(path, str(tmp_path / "s1.json"))
-    res = svc.submit(puzzle.id, puzzle.best_codec_id, best_road)
+    svc = TrainerService(path, JsonStore(tmp_path / "s1.json"))
+    res = svc.submit(puzzle.id, puzzle.best_codec_id, 1, best_road)
     assert res["road"]["scored"] and res["points"] == 100
     assert res["rated_points"] == 100
     assert any(m["best"] for m in res["road"]["table"])
 
     # best settlement + worst road -> averaged down (when roads differ)
-    svc2 = TrainerService(path, str(tmp_path / "s2.json"))
-    res2 = svc2.submit(puzzle.id, puzzle.best_codec_id, worst_road)
+    svc2 = TrainerService(path, JsonStore(tmp_path / "s2.json"))
+    res2 = svc2.submit(puzzle.id, puzzle.best_codec_id, 1, worst_road)
     assert res2["road"]["scored"]
     assert res2["rated_points"] == round((100 + res2["road"]["points"]) / 2)
 
     # non-best settlement -> road not scored, rated on settlement alone
     other = next(m for m in puzzle.moves if m.codec_id != puzzle.best_codec_id)
-    svc3 = TrainerService(path, str(tmp_path / "s3.json"))
-    res3 = svc3.submit(puzzle.id, other.codec_id, best_road)
+    svc3 = TrainerService(path, JsonStore(tmp_path / "s3.json"))
+    res3 = svc3.submit(puzzle.id, other.codec_id, 1, best_road)
     assert res3["road"] == {"scored": False}
     assert res3["rated_points"] == res3["points"]
 
     # illegal road for the best settlement -> soft reject
-    svc4 = TrainerService(path, str(tmp_path / "s4.json"))
-    assert svc4.submit(puzzle.id, puzzle.best_codec_id, 125) in ({"illegal": True},) \
+    svc4 = TrainerService(path, JsonStore(tmp_path / "s4.json"))
+    assert svc4.submit(puzzle.id, puzzle.best_codec_id, 1, 125) in ({"illegal": True},) \
         or fu["moves"][0]["codec_id"] == 125  # (125 could legitimately be legal)
 
 
@@ -195,8 +200,8 @@ def test_reconstructed_position_matches_moves(tmp_path):
     from net.codec import encode_action
 
     path, puzzle = _puzzle_file(tmp_path)
-    svc = TrainerService(path, str(tmp_path / "state.json"))
-    payload = svc.present(puzzle.id)
+    svc = TrainerService(path, JsonStore(tmp_path / "state.json"))
+    payload = svc.present(puzzle.id, 1)
     state = GameState.from_dict(puzzle.state)
     legal_ids = {encode_action(a) for a in legal_actions(state)}
     assert {m["codec_id"] for m in payload["moves"]} == legal_ids

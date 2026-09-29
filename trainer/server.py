@@ -6,72 +6,177 @@ Usage:
                                   [--state data/trainer_state.json]
                                   [--port 8321]
 then open http://localhost:8321
+
+Accounts (HOSTING.md step 1): set DATABASE_URL to use hosted Postgres
+instead of the local JSON file, and SESSION_SECRET to make login sessions
+survive a restart (a random one is generated otherwise — fine for local
+dev, but every restart logs everyone out).
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import secrets
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from .play import PlayService
+from . import auth
 from .service import TrainerService
+from .store import UsernameTaken, get_store
 
 _STATIC = Path(__file__).parent / "static"
+_SIGNUP_LIMIT = auth.RateLimiter(limit=20, window_seconds=3600)
+_LOGIN_LIMIT = auth.RateLimiter(limit=20, window_seconds=3600)
 
 
-def make_handler(service: TrainerService, play: PlayService):
+def _parse_cookie(header: str | None, name: str) -> str | None:
+    if not header:
+        return None
+    for part in header.split(";"):
+        k, _, v = part.strip().partition("=")
+        if k == name:
+            return v
+    return None
+
+
+def make_handler(
+    service: TrainerService,
+    play,
+    session_secret: str,
+    secure_cookies: bool,
+):
+    def _user_id(handler: BaseHTTPRequestHandler) -> int | None:
+        cookie = _parse_cookie(handler.headers.get("Cookie"), "sid")
+        return auth.verify_session(cookie, session_secret) if cookie else None
+
+    def _set_session_cookie(handler: BaseHTTPRequestHandler, user_id: int) -> None:
+        token = auth.make_session(user_id, session_secret)
+        attrs = "HttpOnly; Path=/; SameSite=Lax; Max-Age=" + str(auth.SESSION_TTL)
+        if secure_cookies:
+            attrs += "; Secure"
+        handler.send_header("Set-Cookie", f"sid={token}; {attrs}")
+
+    def _clear_session_cookie(handler: BaseHTTPRequestHandler) -> None:
+        handler.send_header("Set-Cookie", "sid=; HttpOnly; Path=/; Max-Age=0")
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):  # quiet
             pass
 
-        def _json(self, obj, status=200):
+        def _json(self, obj, status=200, extra_headers=()):
             body = json.dumps(obj).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
+            for fn in extra_headers:
+                fn(self)
             self.end_headers()
             self.wfile.write(body)
 
         def do_GET(self):
-            if self.path in ("/", "/index.html"):
-                body = (_STATIC / "index.html").read_bytes()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-            elif self.path == "/api/next":
-                self._json(service.next_puzzle())
-            elif self.path == "/api/play/new":
-                self._json(play.new_game())
-            else:
-                self._json({"error": "not found"}, 404)
+            try:
+                if self.path in ("/", "/index.html"):
+                    body = (_STATIC / "index.html").read_bytes()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                elif self.path == "/api/me":
+                    uid = _user_id(self)
+                    self._json({"user_id": uid} if uid is not None else {"user_id": None})
+                elif self.path == "/api/next":
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    self._json(service.next_puzzle(uid))
+                elif self.path == "/api/play/new":
+                    if play is None:
+                        self._json({"error": "play mode not available on this deployment"}, 404)
+                        return
+                    self._json(play.new_game())
+                else:
+                    self._json({"error": "not found"}, 404)
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": repr(exc)}, 500)
 
         def do_POST(self):
             length = int(self.headers.get("Content-Length", "0"))
             try:
-                req = json.loads(self.rfile.read(length))
-                if self.path == "/api/submit":
+                req = json.loads(self.rfile.read(length)) if length else {}
+                if self.path == "/api/signup":
+                    self._signup(req)
+                elif self.path == "/api/login":
+                    self._login(req)
+                elif self.path == "/api/logout":
+                    self._json({"ok": True}, extra_headers=[_clear_session_cookie])
+                elif self.path == "/api/submit":
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
                     road = req.get("road_codec_id")
                     result = service.submit(
-                        req["puzzle_id"], int(req["codec_id"]),
+                        req["puzzle_id"], int(req["codec_id"]), uid,
                         int(road) if road is not None else None,
                     )
+                    self._json(result)
                 elif self.path == "/api/play/act":
+                    if play is None:
+                        self._json({"error": "play mode not available on this deployment"}, 404)
+                        return
                     result = play.act(
                         req["session"],
                         codec_id=req.get("codec_id"),
                         discard=req.get("discard"),
                     )
+                    self._json(result)
                 else:
                     self._json({"error": "not found"}, 404)
-                    return
-                self._json(result)
             except KeyError as exc:
                 self._json({"error": f"bad request: {exc}"}, 400)
             except Exception as exc:  # noqa: BLE001
                 self._json({"error": repr(exc)}, 500)
+
+        def _signup(self, req: dict) -> None:
+            if not _SIGNUP_LIMIT.allow(self.client_address[0]):
+                self._json({"error": "too many signups, try again later"}, 429)
+                return
+            name, password = req.get("name", ""), req.get("password", "")
+            if not (3 <= len(name) <= 32) or not name.isalnum():
+                self._json({"error": "username must be 3-32 alphanumeric characters"}, 400)
+                return
+            if len(password) < auth.MIN_PASSWORD_LEN:
+                self._json({"error": f"password must be >= {auth.MIN_PASSWORD_LEN} characters"}, 400)
+                return
+            if service.store.get_user(name) is not None:
+                self._json({"error": "username taken"}, 409)
+                return
+            try:
+                user = service.store.create_user(name, auth.hash_password(password))
+            except UsernameTaken:
+                self._json({"error": "username taken"}, 409)
+                return
+            self._json(
+                {"ok": True, "name": name},
+                extra_headers=[lambda h: _set_session_cookie(h, user["id"])],
+            )
+
+        def _login(self, req: dict) -> None:
+            if not _LOGIN_LIMIT.allow(self.client_address[0]):
+                self._json({"error": "too many attempts, try again later"}, 429)
+                return
+            name, password = req.get("name", ""), req.get("password", "")
+            user = service.store.get_user(name)
+            if user is None or not auth.verify_password(password, user["pw_hash"]):
+                self._json({"error": "invalid username or password"}, 401)
+                return
+            self._json(
+                {"ok": True, "name": name},
+                extra_headers=[lambda h: _set_session_cookie(h, user["id"])],
+            )
 
     return Handler
 
@@ -79,19 +184,40 @@ def make_handler(service: TrainerService, play: PlayService):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--puzzles", default="data/puzzles_v5.jsonl")
-    ap.add_argument("--state", default="data/trainer_state.json")
+    ap.add_argument("--state", default="data/trainer_state.json",
+                     help="JsonStore path (ignored if DATABASE_URL is set)")
+    ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8321)
     ap.add_argument("--bot", default="checkpoints/gen7.pt",
                     help="checkpoint for play-vs-bot mode")
     ap.add_argument("--bot-sims", type=int, default=160)
+    ap.add_argument("--no-play", action="store_true",
+                     help="disable play-vs-bot (no torch import) — for hosted deploys")
     args = ap.parse_args()
 
-    service = TrainerService(args.puzzles, args.state)
-    play = PlayService(net_path=args.bot, sims=args.bot_sims)
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(service, play))
+    store = get_store(args.state)
+    service = TrainerService(args.puzzles, store)
+
+    play = None
+    if not args.no_play:
+        from .play import PlayService
+
+        play = PlayService(net_path=args.bot, sims=args.bot_sims)
+
+    session_secret = os.environ.get("SESSION_SECRET")
+    if not session_secret:
+        session_secret = secrets.token_hex(32)
+        print("warning: SESSION_SECRET not set — using a random secret for this "
+              "process; sessions will not survive a restart")
+    secure_cookies = bool(os.environ.get("RENDER"))
+
+    server = ThreadingHTTPServer(
+        (args.host, args.port),
+        make_handler(service, play, session_secret, secure_cookies),
+    )
     print(f"catan tactics trainer: {len(service.puzzles)} puzzles loaded")
-    print(f"play mode bot: {args.bot} (s={args.bot_sims})")
-    print(f"open http://localhost:{args.port}")
+    print(f"play mode bot: {args.bot} (s={args.bot_sims})" if play else "play mode: disabled")
+    print(f"open http://{args.host}:{args.port}")
     server.serve_forever()
 
 

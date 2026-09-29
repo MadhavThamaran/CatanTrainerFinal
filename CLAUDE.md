@@ -40,7 +40,8 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 ## Rules that exist because they were violated once
 
 - **Seed ledger** — every random-seeded run must use a fresh disjoint
-  range. Used: data 0–69023, gates 100000–289999 (gen-9 reserves
+  range. Used: data 0–69023, 70000–70499 (gen-9, scaled down — see
+  `scripts/gen9_run_scaled.sh`), gates 100000–289999 (gen-9 reserves
   270000/280000), mining 200000–213359, play sessions 300000–399999,
   lab reserves 400000+. Update this line when you consume a range.
 - **Long runs die to battery hibernation** on macOS laptops —

@@ -11,9 +11,7 @@ prefers unseen puzzles near the user's rating.
 """
 from __future__ import annotations
 
-import json
 import random
-from pathlib import Path
 
 USER_K = 32.0
 PUZZLE_K = 16.0
@@ -27,12 +25,13 @@ def expected(rating_a: float, rating_b: float) -> float:
 
 
 class Ratings:
-    def __init__(self, state_path: str | Path):
-        self._path = Path(state_path)
-        if self._path.exists():
-            d = json.loads(self._path.read_text())
-        else:
-            d = {}
+    """One user's rating pool, backed by a `Store` (accounts-layer seam —
+    HOSTING.md step 1): `JsonStore` locally, `PgStore` when hosted."""
+
+    def __init__(self, store, user_id: int):
+        self._store = store
+        self._user_id = user_id
+        d = store.load_ratings(user_id) or {}
         self.user: float = d.get("user_rating", INITIAL_USER)
         self.puzzles: dict = d.get("puzzles", {})   # pid -> {rating, attempts, best_points}
         self.history: list = d.get("history", [])
@@ -40,16 +39,13 @@ class Ratings:
     # --- persistence ---
 
     def save(self) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(
-            json.dumps(
-                {
-                    "user_rating": self.user,
-                    "puzzles": self.puzzles,
-                    "history": self.history[-2000:],
-                },
-                indent=1,
-            )
+        self._store.save_ratings(
+            self._user_id,
+            {
+                "user_rating": self.user,
+                "puzzles": self.puzzles,
+                "history": self.history[-2000:],
+            },
         )
 
     # --- ratings ---

@@ -130,6 +130,21 @@
     72%  { opacity: 1; }
     100% { opacity: 0; transform: translateY(-48px); }
   }
+  /* auth overlay */
+  #authoverlay { display: none; position: fixed; inset: 0; background: rgba(20,28,38,.55);
+                 z-index: 50; align-items: center; justify-content: center; }
+  #authcard { background: #f7f1df; border-radius: 16px; padding: 26px 28px; width: 300px;
+              box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  #authcard h2 { margin: 0 0 4px; font-size: 20px; color: #2d2418; }
+  #authcard p { margin: 0 0 16px; font-size: 13px; color: #8a7a58; }
+  #authcard input { width: 100%; box-sizing: border-box; padding: 9px 11px; margin-bottom: 10px;
+                     border: 2px solid #d9c88f; border-radius: 8px; font-size: 14px; }
+  #authsubmit { width: 100%; background: #2563eb; border: none; color: #fff; font-size: 14px;
+                font-weight: 800; padding: 10px; border-radius: 9px; cursor: pointer; }
+  #authtoggle { text-align: center; margin-top: 12px; font-size: 13px; color: #5d4f33; }
+  #authtoggle a { color: #2563eb; cursor: pointer; font-weight: 700; }
+  #autherr { color: #b91c1c; font-size: 13px; margin: -4px 0 10px; min-height: 16px; }
+  #userbadge { cursor: default; }
 </style>
 </head>
 <body>
@@ -140,6 +155,8 @@
       <button class="tbadge modebtn" id="mode-play" onclick="switchMode('play')">⚔️ Play the bot</button>
       <span class="tbadge" id="counter">puzzle 0</span>
       <span class="tbadge" id="pinfo">–</span>
+      <span class="tbadge" id="userbadge" style="display:none">–</span>
+      <button class="tbadge modebtn" id="logoutbtn" style="display:none" onclick="logout()">Log out</button>
     </div>
     <div id="boardwrap"><svg id="board"></svg></div>
     <div id="fxlayer"></div>
@@ -171,6 +188,19 @@
       <tbody id="table"></tbody></table>
       <button id="next" onclick="loadNext()">Next puzzle →</button>
     </div>
+  </div>
+</div>
+<div id="authoverlay">
+  <div id="authcard">
+    <h2 id="authtitle">Log in</h2>
+    <p id="authsub">Track your rating across sessions.</p>
+    <div id="autherr"></div>
+    <input id="authname" placeholder="Username" autocomplete="username"
+           onkeydown="if(event.key==='Enter')submitAuth()">
+    <input id="authpass" type="password" placeholder="Password" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')submitAuth()">
+    <button id="authsubmit" onclick="submitAuth()">Log in</button>
+    <div id="authtoggle">Need an account? <a onclick="switchAuthMode('signup')">Sign up</a></div>
   </div>
 </div>
 <script>
@@ -227,6 +257,69 @@ let PZ = null, count = 0, locked = false;
 let mode = null, staged = null, stagedRoad = null, movesByCat = {};
 let APP_MODE = "trainer";       // "trainer" | "play"
 let discardPick = [];           // play mode: resources chosen for a 7-discard
+let AUTH_NAME = null, authMode = "login";
+
+/* ---- accounts (HOSTING.md step 1) ---- */
+
+async function checkAuthAndStart() {
+  const r = await fetch("/api/me");
+  const v = await r.json();
+  if (v.user_id) {
+    hideAuthCard();
+    document.getElementById("userbadge").textContent = "👤 you";
+    document.getElementById("userbadge").style.display = "";
+    document.getElementById("logoutbtn").style.display = "";
+    loadNext();
+  } else showAuthCard();
+}
+
+function showAuthCard() {
+  document.getElementById("authoverlay").style.display = "flex";
+  document.getElementById("userbadge").style.display = "none";
+  document.getElementById("logoutbtn").style.display = "none";
+}
+function hideAuthCard() {
+  document.getElementById("authoverlay").style.display = "none";
+}
+
+function switchAuthMode(m) {
+  authMode = m;
+  document.getElementById("authtitle").textContent = m === "login" ? "Log in" : "Sign up";
+  document.getElementById("authsub").textContent = m === "login"
+    ? "Track your rating across sessions."
+    : "Pick a username and password — no email needed.";
+  document.getElementById("authsubmit").textContent = m === "login" ? "Log in" : "Sign up";
+  document.getElementById("authtoggle").innerHTML = m === "login"
+    ? 'Need an account? <a onclick="switchAuthMode(\'signup\')">Sign up</a>'
+    : 'Already have one? <a onclick="switchAuthMode(\'login\')">Log in</a>';
+  document.getElementById("autherr").textContent = "";
+}
+
+async function submitAuth() {
+  const name = document.getElementById("authname").value.trim();
+  const password = document.getElementById("authpass").value;
+  const path = authMode === "login" ? "/api/login" : "/api/signup";
+  let r, v;
+  try {
+    r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, password }) });
+    v = await r.json();
+  } catch (e) { document.getElementById("autherr").textContent = "Network error — try again."; return; }
+  if (!r.ok) { document.getElementById("autherr").textContent = v.error || "error"; return; }
+  AUTH_NAME = v.name;
+  document.getElementById("authpass").value = "";
+  hideAuthCard();
+  document.getElementById("userbadge").textContent = "👤 " + AUTH_NAME;
+  document.getElementById("userbadge").style.display = "";
+  document.getElementById("logoutbtn").style.display = "";
+  loadNext();
+}
+
+async function logout() {
+  await fetch("/api/logout", { method: "POST" });
+  AUTH_NAME = null; PZ = null;
+  showAuthCard();
+}
 
 function switchMode(m) {
   if (m === APP_MODE) return;
@@ -255,6 +348,7 @@ async function loadNext() {
     catch (e) { if (attempt === 2) { showFatal(`/api/next -> ${e}`); return; }
                 await new Promise(res => setTimeout(res, 250)); }
   }
+  if (r.status === 401) { showAuthCard(); return; }
   if (!r.ok) { showFatal(`/api/next -> HTTP ${r.status}: ${await r.text()}`); return; }
   PZ = await r.json();
   if (PZ.error) { showFatal(`/api/next -> ${PZ.error}`); return; }
@@ -677,6 +771,7 @@ async function submitStaged() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ puzzle_id: PZ.puzzle_id, codec_id: staged.codec_id,
                            road_codec_id: stagedRoad ? stagedRoad.codec_id : null }) });
+  if (r.status === 401) { locked = false; showAuthCard(); return; }
   const res = await r.json();
   if (res.error) { showFatal(`/api/submit -> ${res.error}`); return; }
   if (res.illegal) {                 // shouldn't happen (we only stage legal), but be safe
@@ -910,7 +1005,7 @@ window.addEventListener("resize", () => {
   clearTimeout(_resizeT);
   _resizeT = setTimeout(() => { if (PZ) renderBoard(); }, 120);
 });
-loadNext();
+checkAuthAndStart();
 </script>
 </body>
 </html>

@@ -3,7 +3,17 @@ name = "catan-trainer"
 version = "0.1.0"
 description = "1v1 Colonist-variant Catan engine and tactics trainer"
 requires-python = ">=3.10"
-dependencies = []
+# psycopg is the only runtime dep the deployed trainer needs (PgStore, when
+# DATABASE_URL is set) -- torch stays out of the base install (HOSTING.md:
+# `uv sync --frozen --no-dev` keeps the Render build slim) and is opt-in via
+# the `play` extra (`uv sync --extra play`) for a paid host that runs play
+# mode, or via the `dev` group for local development.
+dependencies = [
+    "psycopg[binary]>=3.1",
+]
+
+[project.optional-dependencies]
+play = ["torch>=2.4"]
 
 [dependency-groups]
 dev = [
@@ -26,3 +36,22 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["engine", "agents", "search", "net", "puzzles", "trainer"]
+
+[tool.uv.sources]
+# CUDA build on Windows dev machines with an NVIDIA GPU; CPU-only elsewhere
+# (e.g. a Linux Render/VM host running the `play` extra without a GPU) --
+# PyPI's default linux torch wheel pulls in ~2GB of unused CUDA libraries.
+torch = [
+    { index = "pytorch-cu126", marker = "sys_platform == 'win32'" },
+    { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

@@ -27,34 +27,44 @@ _PROMPTS = {
 
 
 class TrainerService:
-    def __init__(self, puzzle_path: str, state_path: str, seed: int = 0):
+    def __init__(self, puzzle_path: str, store, seed: int = 0):
         self.puzzles = load_puzzles(puzzle_path)
         if not self.puzzles:
             raise ValueError(f"no puzzles in {puzzle_path}")
         self._by_id = {p.id: p for p in self.puzzles}
-        self.ratings = Ratings(state_path)
+        self.store = store
         self._rng = random.Random(seed)
-        self._last_id: str | None = None
+        self._last_id: dict[int, str] = {}
+        self._ratings_cache: dict[int, Ratings] = {}
+
+    def ratings_for(self, user_id: int) -> Ratings:
+        r = self._ratings_cache.get(user_id)
+        if r is None:
+            r = self._ratings_cache[user_id] = Ratings(self.store, user_id)
+        return r
 
     # --- presentation ---
 
-    def next_puzzle(self) -> dict:
-        pool = [p for p in self.puzzles if p.id != self._last_id] or self.puzzles
-        puzzle = self.ratings.pick(pool, self._rng)
-        self._last_id = puzzle.id
-        return self.present(puzzle.id)
+    def next_puzzle(self, user_id: int) -> dict:
+        ratings = self.ratings_for(user_id)
+        last = self._last_id.get(user_id)
+        pool = [p for p in self.puzzles if p.id != last] or self.puzzles
+        puzzle = ratings.pick(pool, self._rng)
+        self._last_id[user_id] = puzzle.id
+        return self.present(puzzle.id, user_id)
 
-    def present(self, puzzle_id: str) -> dict:
+    def present(self, puzzle_id: str, user_id: int) -> dict:
         p = self._by_id[puzzle_id]
         state = GameState.from_dict(p.state)
         actor = p.actor
-        entry = self.ratings.puzzle_entry(p.id, p.difficulty)
+        ratings = self.ratings_for(user_id)
+        entry = ratings.puzzle_entry(p.id, p.difficulty)
         return {
             "puzzle_id": p.id,
             "phase": p.phase,
             "difficulty": p.difficulty,
             "prompt": self._prompt(p, state),
-            "user_rating": round(self.ratings.user, 1),
+            "user_rating": round(ratings.user, 1),
             "puzzle_rating": round(entry["rating"], 1),
             "layout": LAYOUT,
             "board": self._board_state(state, actor),
@@ -81,8 +91,13 @@ class TrainerService:
     # --- submission ---
 
     def submit(
-        self, puzzle_id: str, codec_id: int, road_codec_id: int | None = None
+        self,
+        puzzle_id: str,
+        codec_id: int,
+        user_id: int,
+        road_codec_id: int | None = None,
     ) -> dict:
+        ratings = self.ratings_for(user_id)
         p = self._by_id[puzzle_id]
         if not any(m.codec_id == codec_id for m in p.moves):
             # Composed an action that isn't legal here — reject softly so the
@@ -125,7 +140,7 @@ class TrainerService:
             else:
                 road = {"scored": False}
         chosen_q = next(m.q for m in p.moves if m.codec_id == codec_id)
-        rating = self.ratings.record(
+        rating = ratings.record(
             p.id,
             p.difficulty,
             rated_points,

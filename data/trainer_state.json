@@ -1,981 +1,987 @@
 {
- "user_rating": 1455.3605314424544,
- "puzzles": {
-  "887fdb1fadc4": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "92bbb5188fed": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "85c2ee5b19fd": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "9a350e7984fb": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "a5c06efd939a": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "05465c629640": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "aa6d100951b2": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "a0c314b4edf2": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "1a5fe12f2c55": {
-   "rating": 1555.256590121466,
-   "attempts": 1,
-   "best_points": 10
-  },
-  "fee10c0b4ddc": {
-   "rating": 1751.3196808973257,
-   "attempts": 1,
-   "best_points": 10
-  },
-  "373eaf583b01": {
-   "rating": 1540.5616648105463,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "9775ac930528": {
-   "rating": 1540.985993595502,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "bc1075a3d921": {
-   "rating": 1737.42021601685,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "08db0fe75aae": {
-   "rating": 1556.3749412583065,
-   "attempts": 1,
-   "best_points": 10
-  },
-  "9a6e21a1300a": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "e3637173fcb0": {
-   "rating": 1753.6162390171498,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "1a44fc5779c3": {
-   "rating": 1557.515424259305,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "b58bba1bbab5": {
-   "rating": 1555.571711103687,
-   "attempts": 1,
-   "best_points": 10
-  },
-  "ae0eaaa362fe": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "f5b384cc8b7f": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "69a7ca6ab816": {
-   "rating": 1751.5064259957212,
-   "attempts": 1,
-   "best_points": 10
-  },
-  "d6d55e6f0f21": {
-   "rating": 1540.8507765190484,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "c7e080cc36ed": {
-   "rating": 1557.2661778716858,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "3f10ef217309": {
-   "rating": 1737.1172947211205,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "de539dc2b5b3": {
-   "rating": 1557.5233252584715,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "d119f444367b": {
-   "rating": 1557.1791964978652,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "845688381eb9": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "58d89f283122": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "e1c09b586e4f": {
-   "rating": 1556.8536283885871,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "9b014a1cdbce": {
-   "rating": 1556.5463844380008,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "fd7143f2c5a8": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "3f5030c67d11": {
-   "rating": 1752.700824493312,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "0f32ee12c71d": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "153312f27951": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "d99d54010b08": {
-   "rating": 1556.1389202782204,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "c2bc796845ea": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "d33432dd4ee9": {
-   "rating": 1752.4799900264575,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "f6a0b6b6ab25": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "4e50faa21747": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "dbd83ce70c88": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "ca0bbdae13f9": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "8c2274f6e186": {
-   "rating": 1555.7680700869955,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "050c52eb5a87": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "77038ccdb974": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "a5cd2101f2b8": {
-   "rating": 1750.687446551338,
-   "attempts": 1,
-   "best_points": 10
-  },
-  "121dae907905": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "28f1e61f7d1c": {
-   "rating": 1359.9736120830635,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "dd43aa1125a2": {
-   "rating": 1752.0572033462481,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "e4e115cf66e9": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "7189a50076b3": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "d83bd0ee7b7c": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "b3560d5f6cd1": {
-   "rating": 1752.0151165227094,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "b7f836a39256": {
-   "rating": 1751.9746073835695,
-   "attempts": 2,
-   "best_points": 100
-  },
-  "661ad2797614": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "26bab6f1473c": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "de5549ccb6c9": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "c20a956a24d9": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "c652c673701f": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "12a309b61db5": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "00e0a064dc45": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "05e161fa9890": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "146daf3168c1": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "fe4ab402cd49": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "4df822ac3de6": {
-   "rating": 1359.266660074101,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "01664a43932b": {
-   "rating": 1735.7612869951415,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "e22e6c9cf505": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "d3e5b7437d32": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "e6d46cd68764": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "855d278ac1ea": {
-   "rating": 1750.4351205840492,
-   "attempts": 1,
-   "best_points": 10
-  },
-  "cd45a8798b17": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "4e06917fe6a1": {
-   "rating": 1752.0262389791326,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "5ff7fecbf98f": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "3f8cf4955fdb": {
-   "rating": 1751.9853153044942,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "8adc39022c08": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "2a43ef0e521e": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "3549c688d449": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "04db5b0c1898": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "17277e35a8d9": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "55bcf9745fc5": {
-   "rating": 1745.5459082803181,
-   "attempts": 1,
-   "best_points": 40
-  },
-  "ab6914d73175": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "c86246937cbe": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "d8d814b27a4d": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "8032e58ac8b3": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "0949480e8da1": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "279d01c32a6b": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "077d734c8d16": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "db4f3fb383f0": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "bdf76e3ca037": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "644d0c76b2bf": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "88be31d14b11": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "392fd582a3b9": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "72934a9fb500": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "168faf738e94": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "f44ef0625fc5": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "3c514fd7938e": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "77b373f08e6d": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "fe855f1f998c": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "d79693c47f2c": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "6a98cf54d3ae": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "1eb45917c94b": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "67c7510f730f": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "36fee47945a2": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "ffa5e374a58c": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "936a5a2a034d": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "5b5230ad6905": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "1a9091eeefaa": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "2129083ffa12": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "1acff7dac121": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "6fdf8a5d3897": {
-   "rating": 1736.0352722634086,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "3adc421ea4db": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "1b0a578bbbf7": {
-   "rating": 1736.3383836467115,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "79887ade7024": {
-   "rating": 1750.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "26103b967d42": {
-   "rating": 1556.2048636939785,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "1764025871d9": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "e2e5d89943b7": {
-   "rating": 1555.9357780118603,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "d629dcd5d9df": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "23a2794bbeba": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "4b26574da7c9": {
-   "rating": 1350.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "a9d3b1823dbe": {
-   "rating": 1344.1645905363318,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "b59811341d22": {
-   "rating": 1550.0,
-   "attempts": 0,
-   "best_points": null
-  },
-  "4f79b275f3b5": {
-   "rating": 1555.9314642474544,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "1f13b6ffb625": {
-   "rating": 1360.1604902813176,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "fba998819960": {
-   "rating": 1343.7202565662797,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "20f36bbb670d": {
-   "rating": 1343.9938317947312,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "6ad35c52a565": {
-   "rating": 1539.768855021949,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "e8a0c3e25204": {
-   "rating": 1540.2101067629208,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "6f742cec9bad": {
-   "rating": 1556.6433842420322,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "f7f9f040246d": {
-   "rating": 1554.7483002503018,
-   "attempts": 1,
-   "best_points": 10
-  },
-  "a765510541e8": {
-   "rating": 1556.1401803351032,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "2b5e2bd84b16": {
-   "rating": 1539.8749864219749,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "45a95eaca4e0": {
-   "rating": 1556.3146707384321,
-   "attempts": 1,
-   "best_points": -25
-  },
-  "2190b41aae46": {
-   "rating": 1544.8390075974696,
-   "attempts": 1,
-   "best_points": 70
-  },
-  "2670b4e76e97": {
-   "rating": 1556.2639714348147,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "8404092a2301": {
-   "rating": 1555.9913403654502,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "db265c197191": {
-   "rating": 1344.2171799993569,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "9cfd6dd26981": {
-   "rating": 1539.9823457412938,
-   "attempts": 1,
-   "best_points": 100
-  },
-  "073737fa6ef2": {
-   "rating": 1556.420214395967,
-   "attempts": 1,
-   "best_points": 0
-  },
-  "26012b9be866": {
-   "rating": 1556.1382681698433,
-   "attempts": 1,
-   "best_points": -25
+ "users": {},
+ "ratings": {
+  "0": {
+   "user_rating": 1455.3605314424544,
+   "puzzles": {
+    "887fdb1fadc4": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "92bbb5188fed": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "85c2ee5b19fd": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "9a350e7984fb": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "a5c06efd939a": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "05465c629640": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "aa6d100951b2": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "a0c314b4edf2": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "1a5fe12f2c55": {
+     "rating": 1555.256590121466,
+     "attempts": 1,
+     "best_points": 10
+    },
+    "fee10c0b4ddc": {
+     "rating": 1751.3196808973257,
+     "attempts": 1,
+     "best_points": 10
+    },
+    "373eaf583b01": {
+     "rating": 1540.5616648105463,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "9775ac930528": {
+     "rating": 1540.985993595502,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "bc1075a3d921": {
+     "rating": 1737.42021601685,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "08db0fe75aae": {
+     "rating": 1556.3749412583065,
+     "attempts": 1,
+     "best_points": 10
+    },
+    "9a6e21a1300a": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "e3637173fcb0": {
+     "rating": 1753.6162390171498,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "1a44fc5779c3": {
+     "rating": 1557.515424259305,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "b58bba1bbab5": {
+     "rating": 1555.571711103687,
+     "attempts": 1,
+     "best_points": 10
+    },
+    "ae0eaaa362fe": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "f5b384cc8b7f": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "69a7ca6ab816": {
+     "rating": 1751.5064259957212,
+     "attempts": 1,
+     "best_points": 10
+    },
+    "d6d55e6f0f21": {
+     "rating": 1540.8507765190484,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "c7e080cc36ed": {
+     "rating": 1557.2661778716858,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "3f10ef217309": {
+     "rating": 1737.1172947211205,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "de539dc2b5b3": {
+     "rating": 1557.5233252584715,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "d119f444367b": {
+     "rating": 1557.1791964978652,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "845688381eb9": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "58d89f283122": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "e1c09b586e4f": {
+     "rating": 1556.8536283885871,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "9b014a1cdbce": {
+     "rating": 1556.5463844380008,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "fd7143f2c5a8": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "3f5030c67d11": {
+     "rating": 1752.700824493312,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "0f32ee12c71d": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "153312f27951": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "d99d54010b08": {
+     "rating": 1556.1389202782204,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "c2bc796845ea": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "d33432dd4ee9": {
+     "rating": 1752.4799900264575,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "f6a0b6b6ab25": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "4e50faa21747": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "dbd83ce70c88": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "ca0bbdae13f9": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "8c2274f6e186": {
+     "rating": 1555.7680700869955,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "050c52eb5a87": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "77038ccdb974": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "a5cd2101f2b8": {
+     "rating": 1750.687446551338,
+     "attempts": 1,
+     "best_points": 10
+    },
+    "121dae907905": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "28f1e61f7d1c": {
+     "rating": 1359.9736120830635,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "dd43aa1125a2": {
+     "rating": 1752.0572033462481,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "e4e115cf66e9": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "7189a50076b3": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "d83bd0ee7b7c": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "b3560d5f6cd1": {
+     "rating": 1752.0151165227094,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "b7f836a39256": {
+     "rating": 1751.9746073835695,
+     "attempts": 2,
+     "best_points": 100
+    },
+    "661ad2797614": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "26bab6f1473c": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "de5549ccb6c9": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "c20a956a24d9": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "c652c673701f": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "12a309b61db5": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "00e0a064dc45": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "05e161fa9890": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "146daf3168c1": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "fe4ab402cd49": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "4df822ac3de6": {
+     "rating": 1359.266660074101,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "01664a43932b": {
+     "rating": 1735.7612869951415,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "e22e6c9cf505": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "d3e5b7437d32": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "e6d46cd68764": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "855d278ac1ea": {
+     "rating": 1750.4351205840492,
+     "attempts": 1,
+     "best_points": 10
+    },
+    "cd45a8798b17": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "4e06917fe6a1": {
+     "rating": 1752.0262389791326,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "5ff7fecbf98f": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "3f8cf4955fdb": {
+     "rating": 1751.9853153044942,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "8adc39022c08": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "2a43ef0e521e": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "3549c688d449": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "04db5b0c1898": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "17277e35a8d9": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "55bcf9745fc5": {
+     "rating": 1745.5459082803181,
+     "attempts": 1,
+     "best_points": 40
+    },
+    "ab6914d73175": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "c86246937cbe": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "d8d814b27a4d": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "8032e58ac8b3": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "0949480e8da1": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "279d01c32a6b": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "077d734c8d16": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "db4f3fb383f0": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "bdf76e3ca037": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "644d0c76b2bf": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "88be31d14b11": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "392fd582a3b9": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "72934a9fb500": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "168faf738e94": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "f44ef0625fc5": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "3c514fd7938e": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "77b373f08e6d": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "fe855f1f998c": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "d79693c47f2c": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "6a98cf54d3ae": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "1eb45917c94b": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "67c7510f730f": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "36fee47945a2": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "ffa5e374a58c": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "936a5a2a034d": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "5b5230ad6905": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "1a9091eeefaa": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "2129083ffa12": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "1acff7dac121": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "6fdf8a5d3897": {
+     "rating": 1736.0352722634086,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "3adc421ea4db": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "1b0a578bbbf7": {
+     "rating": 1736.3383836467115,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "79887ade7024": {
+     "rating": 1750.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "26103b967d42": {
+     "rating": 1556.2048636939785,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "1764025871d9": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "e2e5d89943b7": {
+     "rating": 1555.9357780118603,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "d629dcd5d9df": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "23a2794bbeba": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "4b26574da7c9": {
+     "rating": 1350.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "a9d3b1823dbe": {
+     "rating": 1344.1645905363318,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "b59811341d22": {
+     "rating": 1550.0,
+     "attempts": 0,
+     "best_points": null
+    },
+    "4f79b275f3b5": {
+     "rating": 1555.9314642474544,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "1f13b6ffb625": {
+     "rating": 1360.1604902813176,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "fba998819960": {
+     "rating": 1343.7202565662797,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "20f36bbb670d": {
+     "rating": 1343.9938317947312,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "6ad35c52a565": {
+     "rating": 1539.768855021949,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "e8a0c3e25204": {
+     "rating": 1540.2101067629208,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "6f742cec9bad": {
+     "rating": 1556.6433842420322,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "f7f9f040246d": {
+     "rating": 1554.7483002503018,
+     "attempts": 1,
+     "best_points": 10
+    },
+    "a765510541e8": {
+     "rating": 1556.1401803351032,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "2b5e2bd84b16": {
+     "rating": 1539.8749864219749,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "45a95eaca4e0": {
+     "rating": 1556.3146707384321,
+     "attempts": 1,
+     "best_points": -25
+    },
+    "2190b41aae46": {
+     "rating": 1544.8390075974696,
+     "attempts": 1,
+     "best_points": 70
+    },
+    "2670b4e76e97": {
+     "rating": 1556.2639714348147,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "8404092a2301": {
+     "rating": 1555.9913403654502,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "db265c197191": {
+     "rating": 1344.2171799993569,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "9cfd6dd26981": {
+     "rating": 1539.9823457412938,
+     "attempts": 1,
+     "best_points": 100
+    },
+    "073737fa6ef2": {
+     "rating": 1556.420214395967,
+     "attempts": 1,
+     "best_points": 0
+    },
+    "26012b9be866": {
+     "rating": 1556.1382681698433,
+     "attempts": 1,
+     "best_points": -25
+    }
+   },
+   "history": [
+    {
+     "pid": "1a5fe12f2c55",
+     "points": 10,
+     "rated": true
+    },
+    {
+     "pid": "fee10c0b4ddc",
+     "points": 10,
+     "rated": true
+    },
+    {
+     "pid": "373eaf583b01",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "9775ac930528",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "bc1075a3d921",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "08db0fe75aae",
+     "points": 10,
+     "rated": true
+    },
+    {
+     "pid": "e3637173fcb0",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "1a44fc5779c3",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "b58bba1bbab5",
+     "points": 10,
+     "rated": true
+    },
+    {
+     "pid": "69a7ca6ab816",
+     "points": 10,
+     "rated": true
+    },
+    {
+     "pid": "d6d55e6f0f21",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "c7e080cc36ed",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "3f10ef217309",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "de539dc2b5b3",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "d119f444367b",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "e1c09b586e4f",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "9b014a1cdbce",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "3f5030c67d11",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "d99d54010b08",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "d33432dd4ee9",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "8c2274f6e186",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "a5cd2101f2b8",
+     "points": 10,
+     "rated": true
+    },
+    {
+     "pid": "28f1e61f7d1c",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "dd43aa1125a2",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "b3560d5f6cd1",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "b7f836a39256",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "4df822ac3de6",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "01664a43932b",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "855d278ac1ea",
+     "points": 10,
+     "rated": true
+    },
+    {
+     "pid": "4e06917fe6a1",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "3f8cf4955fdb",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "55bcf9745fc5",
+     "points": 40,
+     "rated": true
+    },
+    {
+     "pid": "6fdf8a5d3897",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "1b0a578bbbf7",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "b7f836a39256",
+     "points": 100,
+     "rated": false
+    },
+    {
+     "pid": "26103b967d42",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "e2e5d89943b7",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "a9d3b1823dbe",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "4f79b275f3b5",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "1f13b6ffb625",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "fba998819960",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "20f36bbb670d",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "6ad35c52a565",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "e8a0c3e25204",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "6f742cec9bad",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "f7f9f040246d",
+     "points": 10,
+     "rated": true
+    },
+    {
+     "pid": "a765510541e8",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "2b5e2bd84b16",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "45a95eaca4e0",
+     "points": -25,
+     "rated": true
+    },
+    {
+     "pid": "2190b41aae46",
+     "points": 70,
+     "rated": true
+    },
+    {
+     "pid": "2670b4e76e97",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "8404092a2301",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "db265c197191",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "9cfd6dd26981",
+     "points": 100,
+     "rated": true
+    },
+    {
+     "pid": "073737fa6ef2",
+     "points": 0,
+     "rated": true
+    },
+    {
+     "pid": "26012b9be866",
+     "points": -25,
+     "rated": true,
+     "phase": "robber",
+     "regret": 0.1874,
+     "puzzle_rating": 1556.1,
+     "ts": "2026-08-13T23:50:32+00:00"
+    }
+   ]
   }
  },
- "history": [
-  {
-   "pid": "1a5fe12f2c55",
-   "points": 10,
-   "rated": true
-  },
-  {
-   "pid": "fee10c0b4ddc",
-   "points": 10,
-   "rated": true
-  },
-  {
-   "pid": "373eaf583b01",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "9775ac930528",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "bc1075a3d921",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "08db0fe75aae",
-   "points": 10,
-   "rated": true
-  },
-  {
-   "pid": "e3637173fcb0",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "1a44fc5779c3",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "b58bba1bbab5",
-   "points": 10,
-   "rated": true
-  },
-  {
-   "pid": "69a7ca6ab816",
-   "points": 10,
-   "rated": true
-  },
-  {
-   "pid": "d6d55e6f0f21",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "c7e080cc36ed",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "3f10ef217309",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "de539dc2b5b3",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "d119f444367b",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "e1c09b586e4f",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "9b014a1cdbce",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "3f5030c67d11",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "d99d54010b08",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "d33432dd4ee9",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "8c2274f6e186",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "a5cd2101f2b8",
-   "points": 10,
-   "rated": true
-  },
-  {
-   "pid": "28f1e61f7d1c",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "dd43aa1125a2",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "b3560d5f6cd1",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "b7f836a39256",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "4df822ac3de6",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "01664a43932b",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "855d278ac1ea",
-   "points": 10,
-   "rated": true
-  },
-  {
-   "pid": "4e06917fe6a1",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "3f8cf4955fdb",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "55bcf9745fc5",
-   "points": 40,
-   "rated": true
-  },
-  {
-   "pid": "6fdf8a5d3897",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "1b0a578bbbf7",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "b7f836a39256",
-   "points": 100,
-   "rated": false
-  },
-  {
-   "pid": "26103b967d42",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "e2e5d89943b7",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "a9d3b1823dbe",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "4f79b275f3b5",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "1f13b6ffb625",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "fba998819960",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "20f36bbb670d",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "6ad35c52a565",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "e8a0c3e25204",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "6f742cec9bad",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "f7f9f040246d",
-   "points": 10,
-   "rated": true
-  },
-  {
-   "pid": "a765510541e8",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "2b5e2bd84b16",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "45a95eaca4e0",
-   "points": -25,
-   "rated": true
-  },
-  {
-   "pid": "2190b41aae46",
-   "points": 70,
-   "rated": true
-  },
-  {
-   "pid": "2670b4e76e97",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "8404092a2301",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "db265c197191",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "9cfd6dd26981",
-   "points": 100,
-   "rated": true
-  },
-  {
-   "pid": "073737fa6ef2",
-   "points": 0,
-   "rated": true
-  },
-  {
-   "pid": "26012b9be866",
-   "points": -25,
-   "rated": true,
-   "phase": "robber",
-   "regret": 0.1874,
-   "puzzle_rating": 1556.1,
-   "ts": "2026-08-13T23:50:32+00:00"
-  }
- ]
+ "next_id": 1
 }
