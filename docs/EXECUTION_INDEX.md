@@ -35,9 +35,12 @@ don't re-design. Statuses as of 2026-08-14.
       per-skill Elo in `Ratings`, `/api/dashboard`, phase-filtered
       `/api/next?phase=`, "📈 Progress" UI. Coach-override and
       placement-lab leak types stay absent (nullable) until those ship.
-- [ ] **EXPLAIN_SPEC.md** — facts-based explanations + annotate the
-      existing 3,413 puzzles. ~1 day. Upgrades review/coach/lab output
-      wherever it lands earlier.
+- [x] **EXPLAIN_SPEC.md** — facts-based explanations. DONE 2026-09-29:
+      `puzzles/explain.py` (`move_facts`/`render`/`render_miss`, no
+      search), wired into puzzle labeling (`Puzzle.facts`), the puzzle
+      result screen and "yours missed X" (`trainer/service.py`), and
+      post-game review rows (`row.why`). `scripts/annotate_explanations.py`
+      backfills the existing puzzle set.
 
 ## Phase 3 — depth
 - [ ] **LADDER_SPEC.md** — bot ladder + overnight calibration run.

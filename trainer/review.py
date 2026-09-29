@@ -20,6 +20,7 @@ from search import MCTSEngine
 from .actions import describe_move
 from .play import _label, action_from_dict
 from .service import board_state
+from puzzles.explain import move_facts, render
 from puzzles.scoring import VERDICT_FOR_POINTS, points_for_regret
 
 REVIEW_SIMS = 512
@@ -99,7 +100,21 @@ def _build_row(i: int, state: GameState, actor: int, action, evals) -> dict:
         "win_prob": round(q_best, 4),
         "board": board_state(state, actor),
         "marks": marks,
+        "why": _explain_row(state, actor, action, evals),
     }
+
+
+def _explain_row(state, actor: int, action, evals) -> str | None:
+    """EXPLAIN_SPEC §1: same facts->render pipeline as puzzles, one line
+    per reviewed decision — contrasted against what the human actually
+    played (or the runner-up, when they found the best move)."""
+    best_action = evals[0].action
+    alt_action = action if action != best_action else (
+        evals[1].action if len(evals) > 1 else None
+    )
+    facts_best = move_facts(state, best_action, actor)
+    facts_alt = move_facts(state, alt_action, actor) if alt_action is not None else None
+    return render(facts_best, facts_alt, phase=None)
 
 
 class ReviewService:

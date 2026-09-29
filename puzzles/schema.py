@@ -48,6 +48,11 @@ class Puzzle:
     # state (post-settlement), moves [{codec_id, action, q, visits, points,
     # rank}], best_codec_id, gap. None for single-stage puzzles.
     followup: dict | None = None
+    # EXPLAIN_SPEC: {"best": Facts, "second": Facts} for the top-2 ranked
+    # moves — stored so the UI (and a future LLM verbalizer) can re-render
+    # without recomputation. None for puzzles admitted before this shipped
+    # or not yet backfilled by scripts/annotate_explanations.py.
+    facts: dict | None = None
 
     def to_json(self) -> str:
         d = asdict(self)

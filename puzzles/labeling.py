@@ -25,6 +25,7 @@ from net.codec import encode_action
 from search import MCTSEngine
 from search.value import win_prob_p0
 
+from .explain import move_facts, render
 from .schema import Puzzle, PuzzleMove, puzzle_id
 from .scoring import points_for_regret
 
@@ -112,6 +113,18 @@ def label_candidate(
     followup = None
     if candidate["phase"] == "placement":
         followup = _label_setup_road(candidate, best, sims, dets, seeds, net_path)
+
+    # EXPLAIN_SPEC: facts for the top-2 ranked moves, stored for re-render
+    # (UI / a future LLM verbalizer) without recomputation. No search here
+    # — every field is a cheap closed-form diff of the position.
+    state_for_facts = GameState.from_dict(candidate["state"])
+    facts_best = move_facts(state_for_facts, ranked[0], actor)
+    facts_second = move_facts(state_for_facts, ranked[1], actor)
+    explanation = (
+        render(facts_best, facts_second, candidate["phase"])
+        or _explain(candidate["phase"], moves, gap)
+    )
+
     puzzle = Puzzle(
         id=puzzle_id(candidate["state"], actor),
         phase=candidate["phase"],
@@ -121,7 +134,8 @@ def label_candidate(
         best_codec_id=moves[0].codec_id,
         gap=round(gap, 4),
         difficulty=_difficulty(gap),
-        explanation=_explain(candidate["phase"], moves, gap),
+        explanation=explanation,
+        facts={"best": facts_best, "second": facts_second},
         label_config={
             "sims": sims,
             "dets": dets,

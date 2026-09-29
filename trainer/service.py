@@ -10,8 +10,10 @@ from __future__ import annotations
 import random
 import time
 
-from engine import Building, DevCard, GameState, Phase, Resource
+from engine import Building, DevCard, GameState, Phase, Resource, legal_actions
+from net.codec import encode_action
 from puzzles import load_puzzles, score_move
+from puzzles.explain import move_facts, render, render_miss
 
 from . import dashboard as dashboard_module
 from . import srs
@@ -105,6 +107,37 @@ class TrainerService:
 
     # --- submission ---
 
+    def _explain(self, p, state: GameState, codec_id: int, best: dict, second: dict) -> str:
+        """EXPLAIN_SPEC: facts-grounded lead clause (stored `p.facts` when
+        the puzzle was annotated, else computed on the fly — same cheap,
+        no-search functions either way), falling back to the win-prob line
+        when nothing about the move clears salience; plus a "yours missed
+        X" sentence when `codec_id` isn't the best move."""
+        if p.facts is not None:
+            facts_best, facts_second = p.facts["best"], p.facts["second"]
+        else:
+            actions = legal_actions(state)
+            by_codec = {encode_action(a): a for a in actions if encode_action(a) is not None}
+            facts_best = move_facts(state, by_codec[p.best_codec_id], p.actor)
+            facts_second = move_facts(state, by_codec[p.moves[1].codec_id], p.actor)
+
+        text = render(facts_best, facts_second, p.phase)
+        if text is None:
+            text = (
+                f"Best: {best['label']} — {p.moves[0].q:.0%} win chance, "
+                f"{p.gap:.0%} ahead of {second['label']}."
+            )
+        if codec_id != p.best_codec_id:
+            actions = legal_actions(state)
+            chosen_action = next(
+                a for a in actions if encode_action(a) == codec_id
+            )
+            facts_chosen = move_facts(state, chosen_action, p.actor)
+            miss = render_miss(facts_chosen, facts_best)
+            if miss:
+                text += " " + miss
+        return text
+
     def _score(self, p, codec_id: int, road_codec_id: int | None) -> dict | None:
         """Points/table/explanation shared by the rated and SRS submit
         paths — scoring is identical either way; only what happens to the
@@ -163,13 +196,12 @@ class TrainerService:
                     "best": m.codec_id == p.best_codec_id,
                 }
             )
-        # Human explanation built from board-notation labels at serve time
-        # (the stored explanation uses raw engine reprs — unreadable).
+        # EXPLAIN_SPEC: a facts-grounded clause when available (a "why",
+        # not just the win-prob edge), falling back to the win-prob line
+        # for puzzles not yet annotated; plus one sentence on what the
+        # user's own move missed, when it wasn't the best one.
         best, second = table[0], table[1]
-        explanation = (
-            f"Best: {best['label']} — {p.moves[0].q:.0%} win chance, "
-            f"{p.gap:.0%} ahead of {second['label']}."
-        )
+        explanation = self._explain(p, state, codec_id, best, second)
         if road is not None and road.get("scored"):
             road_best = next(m for m in road["table"] if m["best"])
             explanation += (

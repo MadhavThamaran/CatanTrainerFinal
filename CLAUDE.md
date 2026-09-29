@@ -63,6 +63,14 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   event tag; every non-flagged move gets the same verdict as a free
   passive badge. `coach_set` on `/api/play/act`, `?coach=` on
   `/api/play/new`. `🎓 Coach` badge + interjection card in the UI.
+- **Explanations (EXPLAIN_SPEC.md) shipped**: `puzzles/explain.py` —
+  `move_facts(state, action, actor)` (exact, no-search position diff) and
+  `render(facts_best, facts_alt, phase)` (template clauses that cite ONLY
+  facts leaf values, `None` when nothing salient). Wired into puzzle
+  labeling (`Puzzle.facts`, backfilled onto `puzzles_v5.jsonl` via
+  `scripts/annotate_explanations.py`), the puzzle result screen +
+  "yours missed X" (`trainer/service.py::_explain`), and post-game review
+  rows (`trainer/review.py`'s `row.why`).
 - Play mode records every game to `data/games/` (replayable logs) — the
   foundation review stands on.
 - `docs/EXECUTION_INDEX.md` orders all forward work; each feature has a
