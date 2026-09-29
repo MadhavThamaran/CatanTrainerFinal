@@ -12,6 +12,7 @@ import random
 from engine import Building, DevCard, GameState, Phase, Resource
 from puzzles import load_puzzles, score_move
 
+from . import srs
 from .actions import describe_move
 from .elo import Ratings
 from .layout import LAYOUT
@@ -90,19 +91,12 @@ class TrainerService:
 
     # --- submission ---
 
-    def submit(
-        self,
-        puzzle_id: str,
-        codec_id: int,
-        user_id: int,
-        road_codec_id: int | None = None,
-    ) -> dict:
-        ratings = self.ratings_for(user_id)
-        p = self._by_id[puzzle_id]
+    def _score(self, p, codec_id: int, road_codec_id: int | None) -> dict | None:
+        """Points/table/explanation shared by the rated and SRS submit
+        paths — scoring is identical either way; only what happens to the
+        rating differs. Returns None for an illegal codec_id."""
         if not any(m.codec_id == codec_id for m in p.moves):
-            # Composed an action that isn't legal here — reject softly so the
-            # user can try another; not scored, not rated.
-            return {"illegal": True}
+            return None
         points = score_move(p, codec_id)
         state = GameState.from_dict(p.state)
 
@@ -118,7 +112,7 @@ class TrainerService:
                     (m for m in fu["moves"] if m["codec_id"] == road_codec_id), None
                 )
                 if fm is None:
-                    return {"illegal": True}
+                    return None
                 road = {
                     "scored": True,
                     "points": fm["points"],
@@ -140,13 +134,7 @@ class TrainerService:
             else:
                 road = {"scored": False}
         chosen_q = next(m.q for m in p.moves if m.codec_id == codec_id)
-        rating = ratings.record(
-            p.id,
-            p.difficulty,
-            rated_points,
-            phase=p.phase,
-            regret=round(p.moves[0].q - chosen_q, 4),
-        )
+        regret = round(p.moves[0].q - chosen_q, 4)
 
         table = []
         for m in p.moves:
@@ -179,13 +167,75 @@ class TrainerService:
         return {
             "points": points,
             "rated_points": rated_points,
+            "regret": regret,
             "best_codec_id": p.best_codec_id,
             "gap": p.gap,
             "explanation": explanation,
             "table": table,
             "road": road,
-            "rating": rating,
         }
+
+    def submit(
+        self,
+        puzzle_id: str,
+        codec_id: int,
+        user_id: int,
+        road_codec_id: int | None = None,
+    ) -> dict:
+        ratings = self.ratings_for(user_id)
+        p = self._by_id[puzzle_id]
+        scored = self._score(p, codec_id, road_codec_id)
+        if scored is None:
+            # Composed an action that isn't legal here — reject softly so the
+            # user can try another; not scored, not rated.
+            return {"illegal": True}
+        rating = ratings.record(
+            p.id, p.difficulty, scored["rated_points"],
+            phase=p.phase, regret=scored["regret"],
+        )
+        # SRS entry point (SRS_SPEC §3): only the RATED trainer path
+        # enqueues a miss — lesson/lab/SRS-review attempts never do.
+        if rating["rated"] and scored["rated_points"] < srs.PASS_THRESHOLD:
+            srs.add(ratings.srs, p.id)
+            ratings.save()
+        return {**scored, "rating": rating}
+
+    def submit_srs(
+        self,
+        puzzle_id: str,
+        codec_id: int,
+        user_id: int,
+        road_codec_id: int | None = None,
+    ) -> dict:
+        """SRS review submission: scored identically to `submit` for
+        DISPLAY, but never touches puzzle-Elo (SRS_SPEC §1/§3) — only the
+        item's box moves."""
+        ratings = self.ratings_for(user_id)
+        p = self._by_id[puzzle_id]
+        if p.id not in ratings.srs:
+            return {"error": "puzzle is not in your review queue"}
+        scored = self._score(p, codec_id, road_codec_id)
+        if scored is None:
+            return {"illegal": True}
+        passed = scored["rated_points"] >= srs.PASS_THRESHOLD
+        srs_result = srs.record_review(ratings.srs, p.id, passed)
+        ratings.save()
+        return {**scored, "srs_result": srs_result}
+
+    # --- SRS (spaced repetition on missed puzzles) ---
+
+    def next_srs(self, user_id: int) -> dict | None:
+        ratings = self.ratings_for(user_id)
+        due = srs.due_ids(ratings.srs)
+        if not due:
+            return None
+        payload = self.present(due[0], user_id)
+        payload["srs"] = True
+        payload["srs_queue"] = len(due)
+        return payload
+
+    def srs_summary(self, user_id: int) -> dict:
+        return srs.summary(self.ratings_for(user_id).srs)
 
 
 # --- shared presentation helpers (trainer + play mode) ---

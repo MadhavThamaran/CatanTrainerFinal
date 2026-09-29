@@ -35,6 +35,7 @@ class Ratings:
         self.user: float = d.get("user_rating", INITIAL_USER)
         self.puzzles: dict = d.get("puzzles", {})   # pid -> {rating, attempts, best_points}
         self.history: list = d.get("history", [])
+        self.srs: dict = d.get("srs", {})   # pid -> {box, due, lapses, added} (SRS_SPEC)
 
     # --- persistence ---
 
@@ -45,6 +46,7 @@ class Ratings:
                 "user_rating": self.user,
                 "puzzles": self.puzzles,
                 "history": self.history[-2000:],
+                "srs": self.srs,
             },
         )
 

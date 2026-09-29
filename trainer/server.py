@@ -95,6 +95,22 @@ def make_handler(
                         self._json({"error": "unauthenticated"}, 401)
                         return
                     self._json(service.next_puzzle(uid))
+                elif path == "/api/srs/summary":
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    self._json(service.srs_summary(uid))
+                elif path == "/api/srs/next":
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    result = service.next_srs(uid)
+                    if result is None:
+                        self._json({"error": "queue is empty"}, 404)
+                        return
+                    self._json(result)
                 elif path == "/api/play/new":
                     if play is None:
                         self._json({"error": "play mode not available on this deployment"}, 404)
@@ -130,11 +146,10 @@ def make_handler(
                         self._json({"error": "unauthenticated"}, 401)
                         return
                     road = req.get("road_codec_id")
-                    result = service.submit(
-                        req["puzzle_id"], int(req["codec_id"]), uid,
-                        int(road) if road is not None else None,
-                    )
-                    self._json(result)
+                    road = int(road) if road is not None else None
+                    submit_fn = service.submit_srs if req.get("srs") else service.submit
+                    result = submit_fn(req["puzzle_id"], int(req["codec_id"]), uid, road)
+                    self._json(result, 404 if result.get("error") else 200)
                 elif self.path == "/api/play/act":
                     if play is None:
                         self._json({"error": "play mode not available on this deployment"}, 404)

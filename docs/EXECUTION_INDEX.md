@@ -14,8 +14,9 @@ don't re-design. Statuses as of 2026-08-14.
       DONE 2026-09-29: live at https://catantrainerfinal.onrender.com.
       DASHBOARD_SPEC §0 per-skill-Elo addition still open (not done in
       the same change — revisit when building the dashboard).
-- [ ] **SRS_SPEC.md** — spaced repetition. ~0.75 day. Ship with accounts
-      so queues are per-user from birth.
+- [x] **SRS_SPEC.md** — spaced repetition. DONE 2026-09-29: Leitner boxes
+      (`trainer/srs.py`), `/api/srs/summary` + `/api/srs/next`, `srs:true`
+      on `/api/submit` (unrated). Header chip `🔁 Review (N)`.
 
 ## Phase 2 — the improvement loop
 - [x] **REVIEW_SPEC.md** — post-game review. DONE 2026-09-29:
