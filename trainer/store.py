@@ -71,54 +71,70 @@ class JsonStore:
 
 
 class PgStore:
-    """Hosted: Neon/Postgres via psycopg. Creates its tables on connect."""
+    """Hosted: Neon/Postgres via psycopg. Creates its tables on connect.
+
+    Opens a fresh connection per operation rather than holding one open —
+    Neon's pooled ("-pooler") endpoint is built for exactly this (it pools
+    server-side), and a long-lived connection held across requests in a
+    multi-threaded server is both unsafe to share between threads and
+    liable to be silently dropped by the pooler between requests (seen in
+    practice: `OperationalError: SSL connection has been closed
+    unexpectedly` on the first request after the connection sat idle)."""
 
     def __init__(self, database_url: str):
         import psycopg
 
         self._psycopg = psycopg
-        self._conn = psycopg.connect(database_url, autocommit=True)
-        self._conn.execute(
-            """CREATE TABLE IF NOT EXISTS users (
-                 id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL,
-                 pw_hash TEXT NOT NULL, created TIMESTAMPTZ DEFAULT now())"""
-        )
-        self._conn.execute(
-            """CREATE TABLE IF NOT EXISTS ratings (
-                 user_id INT REFERENCES users(id), key TEXT, value JSONB,
-                 PRIMARY KEY (user_id, key))"""
-        )
+        self._url = database_url
+        with self._connect() as conn:
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS users (
+                     id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL,
+                     pw_hash TEXT NOT NULL, created TIMESTAMPTZ DEFAULT now())"""
+            )
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS ratings (
+                     user_id INT REFERENCES users(id), key TEXT, value JSONB,
+                     PRIMARY KEY (user_id, key))"""
+            )
+
+    def _connect(self):
+        return self._psycopg.connect(self._url, autocommit=True)
 
     def get_user(self, name: str) -> dict | None:
-        row = self._conn.execute(
-            "SELECT id, name, pw_hash FROM users WHERE name = %s", (name,)
-        ).fetchone()
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT id, name, pw_hash FROM users WHERE name = %s", (name,)
+            ).fetchone()
         return {"id": row[0], "name": row[1], "pw_hash": row[2]} if row else None
 
     def create_user(self, name: str, pw_hash: str) -> dict:
         try:
-            row = self._conn.execute(
-                "INSERT INTO users (name, pw_hash) VALUES (%s, %s) RETURNING id",
-                (name, pw_hash),
-            ).fetchone()
+            with self._connect() as conn:
+                row = conn.execute(
+                    "INSERT INTO users (name, pw_hash) VALUES (%s, %s) RETURNING id",
+                    (name, pw_hash),
+                ).fetchone()
         except self._psycopg.errors.UniqueViolation as exc:
             raise UsernameTaken(name) from exc
         return {"id": row[0], "name": name, "pw_hash": pw_hash}
 
     def load_ratings(self, user_id: int) -> dict:
-        row = self._conn.execute(
-            "SELECT value FROM ratings WHERE user_id = %s AND key = 'main'", (user_id,)
-        ).fetchone()
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT value FROM ratings WHERE user_id = %s AND key = 'main'", (user_id,)
+            ).fetchone()
         return row[0] if row else {}
 
     def save_ratings(self, user_id: int, data: dict) -> None:
         from psycopg.types.json import Json
 
-        self._conn.execute(
-            """INSERT INTO ratings (user_id, key, value) VALUES (%s, 'main', %s)
-               ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value""",
-            (user_id, Json(data)),
-        )
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO ratings (user_id, key, value) VALUES (%s, 'main', %s)
+                   ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value""",
+                (user_id, Json(data)),
+            )
 
 
 def get_store(state_path: str | Path) -> Store:
