@@ -7,7 +7,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~1-4min, 192 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 203 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
@@ -29,7 +29,7 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 `puzzles/` (mine candidates from self-play, deep-label, admit) →
 `trainer/` (stdlib HTTP app: puzzle trainer + play-vs-bot).
 
-## Current state (2026-09-29)
+## Current state (2026-09-30)
 
 - **Champion: `checkpoints/gen7.pt`** (75/100 vs raw engine; gen-8 was
   NOT promoted — 218/400, CI-LB < 50%). Gen-9 (scaled to this machine's
@@ -81,6 +81,17 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   rung (COACH_SPEC's own logic untouched). Ratings are PROVISIONAL
   (declared guesses) until `scripts/ladder_calibrate.py`'s ~8-10h
   measurement pass is actually run — written but not yet executed.
+- **Placement lab (PLACEMENT_LAB_SPEC.md) shipped**: `trainer/lab.py` —
+  `LabService`/`LabSession` drill the 1v1 setup snake (A-B-B-A); each of
+  the human's 4 decisions (2 settlements + 2 roads) is graded BEFORE it
+  applies (single-seed `MCTSEngine` pass, `LAB_SIMS=256/LAB_DETS=4`),
+  with a percentile, an EXPLAIN-rendered sentence (settlement picks), and
+  board-mark rings. Attempts append to `data/lab_attempts.jsonl`
+  (per-user, no Store/Ratings coupling — structurally can't touch
+  puzzle-Elo). `/api/lab/new`, `/api/lab/act`, `/api/lab/stats` (bias
+  deltas + threshold statements over the last 50 settlement picks,
+  n>=15 gated). Client: `🧪 Placement lab` mode, grade card, drill
+  summary, stats card.
 - Play mode records every game to `data/games/` (replayable logs) — the
   foundation review stands on.
 - `docs/EXECUTION_INDEX.md` orders all forward work; each feature has a
@@ -93,7 +104,9 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   range. Used: data 0–69023, 70000–70499 (gen-9, scaled down — see
   `scripts/gen9_run_scaled.sh`), gates 100000–289999 (gen-9 reserves
   270000/280000), mining 200000–213359, play sessions 300000–399999,
-  lab reserves 400000+. Update this line when you consume a range.
+  lab drills 400000–90399999 (`trainer/lab.py` samples randomly across
+  this whole span — "endless fresh boards" per spec, not a one-shot run).
+  Update this line when you consume a range.
 - **Long runs die to battery hibernation** on macOS laptops —
   `caffeinate -is` only holds on AC. All pipeline scripts are
   chunk-resumable: rerun after any interruption; completed chunks skip.
@@ -131,5 +144,5 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Explanatory strings shown to users derive ONLY from computed facts —
   no vibes (see EXPLAIN_SPEC honesty rules; same contract in lab,
   dashboard, coach specs).
-- Tests are the porting/refactor contract: 192 passing, spec-mapped
+- Tests are the porting/refactor contract: 203 passing, spec-mapped
   files per feature (`tests/test_<feature>.py`).

@@ -50,8 +50,14 @@ don't re-design. Statuses as of 2026-08-14.
       picker, in-game rung/rated badge, unlock/Elo toast, Rematch.
       `scripts/ladder_calibrate.py` written but NOT YET RUN (the real
       ~8-10h measurement pass) — rungs report provisional Elo until it is.
-- [ ] **PLACEMENT_LAB_SPEC.md** — placement drills + bias analytics.
-      ~1.5–2 days. Better after EXPLAIN.
+- [x] **PLACEMENT_LAB_SPEC.md** — placement drills + bias analytics.
+      DONE 2026-09-30: `trainer/lab.py` (`LabService`/`LabSession`, 4
+      human setup decisions graded pre-move against a single-seed deep
+      pass, EXPLAIN-rendered sentences for settlement picks), append-only
+      `data/lab_attempts.jsonl` (per-user), `/api/lab/new`, `/api/lab/act`,
+      `/api/lab/stats` (bias deltas + threshold statements, n>=15 gated).
+      Client: `🧪 Placement lab` mode, grade card, drill summary, lab
+      stats card.
 - [ ] **ANALYSIS_SPEC.md** — analysis board with choosable dice. ~2
       days. Better after REVIEW (its entry point).
 - [ ] **CURRICULUM_SPEC.md** — six lesson tracks. ~2.5 days (content is

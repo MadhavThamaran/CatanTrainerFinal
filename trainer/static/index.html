@@ -244,6 +244,17 @@
   #laddertoast { display: none; background: #fff7ed; border: 2px solid #fb923c;
                  border-radius: 12px; padding: 10px 14px; margin: 8px 0; font-size: 13px;
                  color: #7c2d12; font-weight: 700; }
+  /* placement lab (PLACEMENT_LAB_SPEC) */
+  #labside { display: none; }
+  #labpct { margin: 4px 0 8px; }
+  #labexplain { font-size: 13px; color: #5d4f33; margin: 0 0 8px; }
+  .labbtn { margin-top: 8px; width: 100%; background: #2563eb; border: none; color: #fff;
+            font-size: 14px; font-weight: 800; padding: 10px; border-radius: 9px; cursor: pointer; }
+  #labsummarylist { max-height: 200px; overflow-y: auto; margin: 6px 0; }
+  #labstatscard h4, #labsummary h4 { margin: 12px 0 6px; font-size: 12px; text-transform: uppercase;
+                                      letter-spacing: .5px; color: #8a7a58; }
+  .labslotrow { display: flex; justify-content: space-between; font-size: 12.5px;
+                color: #5d4f33; padding: 2px 0; }
 </style>
 </head>
 <body>
@@ -252,6 +263,7 @@
     <div id="topbadges">
       <button class="tbadge modebtn active" id="mode-trainer" onclick="SRS_MODE=false; DRILL_PHASE=null; switchMode('trainer')">🧩 Trainer</button>
       <button class="tbadge modebtn" id="mode-play" onclick="switchMode('play')">⚔️ Play the bot</button>
+      <button class="tbadge modebtn" id="mode-lab" onclick="switchMode('lab')">🧪 Placement lab</button>
       <span class="tbadge" id="counter">puzzle 0</span>
       <span class="tbadge" id="pinfo">–</span>
       <span class="tbadge" id="userbadge" style="display:none">–</span>
@@ -294,6 +306,27 @@
       <button id="reviewbtn" style="display:none" onclick="startReview()">📊 Review game</button>
       <button id="rematchbtn" style="display:none" onclick="loadGame()">🔁 Rematch</button>
       <button id="newgame" onclick="showLadderScreen()">🎮 Choose opponent</button>
+    </div>
+    <div class="card" id="labside">
+      <h3>Placement lab</h3>
+      <div id="labgrade" style="display:none">
+        <span id="labverdict" class="vchip"></span>
+        <div id="labpct" class="dsub"></div>
+        <div id="labexplain"></div>
+        <table><thead><tr><th>Move</th><th>Win %</th></tr></thead>
+        <tbody id="labtable"></tbody></table>
+        <button class="labbtn" onclick="continueLab()">Continue →</button>
+      </div>
+      <div id="labsummary" style="display:none">
+        <h4>Drill summary</h4>
+        <div id="labsummarytotal" class="dsub"></div>
+        <div id="labsummarylist"></div>
+        <button class="labbtn" onclick="nextBoard()">Next board →</button>
+      </div>
+      <div id="labstatscard">
+        <h4>Lab stats</h4>
+        <div id="labstats"></div>
+      </div>
     </div>
     <div class="card" id="reviewcard">
       <h3>Game review</h3>
@@ -628,17 +661,21 @@ async function logout() {
 
 function switchMode(m) {
   if (m === APP_MODE) return;
-  if (m === "play") { SRS_MODE = false; DRILL_PHASE = null; }
+  if (m === "play" || m === "lab") { SRS_MODE = false; DRILL_PHASE = null; }
   closeReview();
   APP_MODE = m;
   document.getElementById("mode-trainer").classList.toggle("active", m === "trainer");
   document.getElementById("mode-play").classList.toggle("active", m === "play");
+  document.getElementById("mode-lab").classList.toggle("active", m === "lab");
   document.getElementById("gamelog").style.display = m === "play" ? "block" : "none";
-  document.getElementById("pinfo").style.display = m === "play" ? "none" : "";
+  document.getElementById("labside").style.display = m === "lab" ? "block" : "none";
+  document.getElementById("pinfo").style.display = (m === "play" || m === "lab") ? "none" : "";
   document.getElementById("coachbadge").style.display = m === "play" ? "" : "none";
   document.getElementById("loglines").innerHTML = "";
   hideCoachCard();
-  if (m === "play") showLadderScreen(); else loadNext();
+  if (m === "play") showLadderScreen();
+  else if (m === "lab") loadDrill();
+  else loadNext();
 }
 
 /* ---- bot ladder (LADDER_SPEC) ---- */
@@ -927,6 +964,134 @@ function appendEvents(events) {
     box.appendChild(d);
   }
   box.scrollTop = box.scrollHeight;
+}
+
+/* ---- placement lab (PLACEMENT_LAB_SPEC) ---- */
+
+let LAB_PENDING_NEXT = null, LAB_PENDING_SUMMARY = null;
+
+async function loadDrill() {
+  closeReview();
+  hideCoachCard();
+  document.getElementById("labgrade").style.display = "none";
+  document.getElementById("labsummary").style.display = "none";
+  document.getElementById("prompttext").textContent = "Setting up the board…";
+  const r = await fetch("/api/lab/new");
+  if (r.status === 401) { showAuthCard(); return; }
+  const v = await r.json();
+  if (v.error) { showFatal(`/api/lab/new -> ${v.error}`); return; }
+  applyLabView(v);
+  refreshLabStats();
+}
+
+function applyLabView(v) {
+  PZ = v; locked = false; mode = null; staged = null; stagedRoad = null;
+  movesByCat = {};
+  for (const m of v.moves) (movesByCat[m.category] ||= []).push(m);
+  document.getElementById("counter").textContent = "🧪 " + (v.slot || "placement lab");
+  document.getElementById("prompttext").textContent = v.prompt;
+  renderSide(); renderActionBar(); renderBoard(); renderStaged();
+  const cats = Object.keys(movesByCat);
+  if (cats.length === 1) activateMode(cats[0]);
+}
+
+async function labPick(codecId) {
+  if (locked) return;
+  locked = true;
+  document.getElementById("prompttext").textContent = "🤖 Engine is grading…";
+  const r = await fetch("/api/lab/act", { method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ drill: PZ.drill, codec_id: codecId }) });
+  const res = await r.json();
+  if (res.error) { showFatal(`/api/lab/act -> ${res.error}`); return; }
+  if (res.illegal) { locked = false; return; }
+  for (const ev of res.events) {
+    if (!ev.place) continue;
+    if (ev.place.kind === "road") PZ.board.roads[String(ev.place.edge)] = { mine: ev.place.mine };
+    else PZ.board.buildings[String(ev.place.vertex)] =
+      { mine: ev.place.mine, kind: ev.place.kind };
+  }
+  renderBoard(res.grade.marks);
+  showLabGrade(res.grade, res.next, res.summary);
+}
+
+function showLabGrade(grade, next, summary) {
+  LAB_PENDING_NEXT = next; LAB_PENDING_SUMMARY = summary;
+  const meta = VERDICT_META[grade.verdict];
+  document.getElementById("stagedbar").style.display = "none";
+  const card = document.getElementById("labgrade");
+  card.style.display = "block";
+  const v = document.getElementById("labverdict");
+  v.className = "vchip " + grade.verdict;
+  v.innerHTML = `${meta.icon} ${meta.label}`;
+  document.getElementById("labpct").textContent =
+    `regret ${grade.regret.toFixed(2)} · better than ${Math.round(grade.pct * 100)}% of legal picks`;
+  document.getElementById("labexplain").textContent = emojify(grade.explanation);
+  const tbl = document.getElementById("labtable");
+  tbl.innerHTML = "";
+  for (const row of grade.table) {
+    const tr = document.createElement("tr");
+    if (row.best) tr.classList.add("best");
+    if (row.chosen) tr.classList.add("chosen");
+    tr.innerHTML = `<td>${emojify(row.label)}</td><td>${(row.q * 100).toFixed(0)}%</td>`;
+    tbl.appendChild(tr);
+  }
+  document.getElementById("prompttext").textContent = "Your move, graded.";
+}
+
+function continueLab() {
+  document.getElementById("labgrade").style.display = "none";
+  document.getElementById("stagedbar").style.display = "flex";
+  if (LAB_PENDING_SUMMARY) { showLabSummary(LAB_PENDING_SUMMARY); return; }
+  applyLabView(LAB_PENDING_NEXT);
+}
+
+function showLabSummary(summary) {
+  document.getElementById("labsummary").style.display = "block";
+  document.getElementById("stagedbar").style.display = "none";
+  document.getElementById("labsummarytotal").textContent =
+    `Total regret: ${summary.total_regret.toFixed(2)} · avg ${summary.avg_points} pts`;
+  const list = document.getElementById("labsummarylist");
+  list.innerHTML = "";
+  for (const g of summary.grades) {
+    const meta = VERDICT_META[g.verdict];
+    const row = document.createElement("div");
+    row.className = "revrow";
+    row.innerHTML = `<span class="revicon">${meta.icon}</span>` +
+      `<span class="revlabel">${g.slot} — ${g.kind}</span>` +
+      `<span class="revpts">${g.points > 0 ? "+" : ""}${g.points}</span>`;
+    list.appendChild(row);
+  }
+  document.getElementById("prompttext").textContent = "🧪 Drill complete.";
+  locked = true;
+  refreshLabStats();
+}
+
+function nextBoard() {
+  document.getElementById("labsummary").style.display = "none";
+  loadDrill();
+}
+
+async function refreshLabStats() {
+  const r = await fetch("/api/lab/stats");
+  if (!r.ok) return;
+  renderLabStats(await r.json());
+}
+
+function renderLabStats(s) {
+  const el = document.getElementById("labstats");
+  if (!s.deltas) {
+    el.innerHTML = `<div class="dempty">${s.statements[0].statement}</div>`;
+    return;
+  }
+  const slots = Object.entries(s.by_slot).map(([slot, v]) =>
+    `<div class="labslotrow"><span>${slot}</span><span>${
+      v.mean_regret != null ? "regret " + v.mean_regret.toFixed(2) + " (n=" + v.n + ")" : "—"
+    }</span></div>`
+  ).join("");
+  const statements = s.statements.map(st => `<div class="leak-row">${st.statement}</div>`).join("");
+  el.innerHTML =
+    `<div class="dsub">${s.n} of your last settlement picks</div>${slots}${statements}`;
 }
 
 /* ---- post-game review (REVIEW_SPEC) ---- */
@@ -1343,6 +1508,11 @@ function stage(move) {
     if (!locked) playAct({ codec_id: move.codec_id });
     return;
   }
+  if (APP_MODE === "lab") {
+    // Same instant-apply idiom as play mode, but graded BEFORE it applies.
+    if (!locked) labPick(move.codec_id);
+    return;
+  }
   staged = move;
   if (move.category === "setup_settlement") stagedRoad = null;
   renderStaged(); renderBoard();
@@ -1367,6 +1537,11 @@ function clearStaged() {
 function renderStaged() {
   const lbl = document.getElementById("stagedlabel");
   const btn = document.getElementById("submit");
+  if (APP_MODE === "lab") {
+    // The lab has its own grade/summary cards; no staged bar at all.
+    document.getElementById("stagedbar").style.display = "none";
+    return;
+  }
   // Play mode: actions apply on click, so the Submit button only exists
   // for the discard confirm (buildDiscardPicker manages that state).
   btn.style.display = APP_MODE === "play" && !(PZ && PZ.discard) ? "none" : "";

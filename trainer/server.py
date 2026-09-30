@@ -47,6 +47,8 @@ def make_handler(
     review,
     session_secret: str,
     secure_cookies: bool,
+    lab=None,
+    lab_stats_for=None,
 ):
     def _user_id(handler: BaseHTTPRequestHandler) -> int | None:
         cookie = _parse_cookie(handler.headers.get("Cookie"), "sid")
@@ -153,6 +155,24 @@ def make_handler(
                         qs.get("id", [""])[0], int(qs.get("from", ["0"])[0])
                     )
                     self._json(result, 404 if "error" in result else 200)
+                elif path == "/api/lab/new":
+                    if lab is None:
+                        self._json({"error": "placement lab not available on this deployment"}, 404)
+                        return
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    self._json(lab.new_drill(user_id=uid))
+                elif path == "/api/lab/stats":
+                    if lab is None:
+                        self._json({"error": "placement lab not available on this deployment"}, 404)
+                        return
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    self._json(lab_stats_for(uid), 200)
                 else:
                     self._json({"error": "not found"}, 404)
             except Exception as exc:  # noqa: BLE001
@@ -196,6 +216,12 @@ def make_handler(
                         return
                     result = review.start(req["game_id"])
                     self._json(result, result.pop("status", 404) if "error" in result else 200)
+                elif self.path == "/api/lab/act":
+                    if lab is None:
+                        self._json({"error": "placement lab not available on this deployment"}, 404)
+                        return
+                    result = lab.act(req["drill"], int(req["codec_id"]))
+                    self._json(result, 404 if "error" in result else 200)
                 else:
                     self._json({"error": "not found"}, 404)
             except KeyError as exc:
@@ -261,21 +287,26 @@ def main() -> None:
     ap.add_argument("--coach-sims", type=int, default=160,
                      help="coach-mode search budget (judges at a fixed reference net)")
     ap.add_argument("--coach-dets", type=int, default=4)
+    ap.add_argument("--lab-sims", type=int, default=256,
+                     help="placement lab grading budget (single-seed, coarse-but-fast)")
+    ap.add_argument("--lab-dets", type=int, default=4)
     args = ap.parse_args()
 
     store = get_store(args.state)
     service = TrainerService(args.puzzles, store)
 
-    play, review = None, None
+    play, review, lab, lab_stats_for = None, None, None, None
     if not args.no_play:
         from .play import PlayService
         from .review import ReviewService
+        from .lab import LabService, stats_for as lab_stats_for
 
         play = PlayService(
             ratings_for=service.ratings_for, default_rung=args.default_rung,
             coach_sims=args.coach_sims, coach_dets=args.coach_dets,
         )
         review = ReviewService(sims=args.review_sims, dets=args.review_dets)
+        lab = LabService(sims=args.lab_sims, dets=args.lab_dets)
 
     session_secret = os.environ.get("SESSION_SECRET")
     if not session_secret:
@@ -286,7 +317,10 @@ def main() -> None:
 
     server = ThreadingHTTPServer(
         (args.host, args.port),
-        make_handler(service, play, review, session_secret, secure_cookies),
+        make_handler(
+            service, play, review, session_secret, secure_cookies,
+            lab=lab, lab_stats_for=lab_stats_for,
+        ),
     )
     print(f"catan tactics trainer: {len(service.puzzles)} puzzles loaded")
     print(f"play mode: bot ladder (default rung {args.default_rung})" if play else "play mode: disabled")
