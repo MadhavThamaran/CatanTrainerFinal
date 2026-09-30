@@ -58,8 +58,19 @@ don't re-design. Statuses as of 2026-08-14.
       `/api/lab/stats` (bias deltas + threshold statements, n>=15 gated).
       Client: `🧪 Placement lab` mode, grade card, drill summary, lab
       stats card.
-- [ ] **ANALYSIS_SPEC.md** — analysis board with choosable dice. ~2
-      days. Better after REVIEW (its entry point).
+- [x] **ANALYSIS_SPEC.md** — analysis board with choosable dice.
+      DONE 2026-09-30: engine seam (`engine/chance.py`:
+      `force_next_roll`/`force_next_steal`/`force_next_draw`, each
+      provably leaves the untouched stream bit-identical after);
+      `search/`'s `Determinizer(exact=True)` skips hidden-info resampling
+      for already-perfect analysis states. `trainer/analysis.py`
+      (content-addressed node tree, forced lines reused, unforced always
+      forks fresh, 200-node cap). `/api/analysis/new|eval|apply|tree`.
+      Client: "🔬 Analyze" entry points on puzzle results and review rows
+      (reuses the board/action-bar/marks idioms as a 4th APP_MODE),
+      revealed-hands card, engine-lines card, line breadcrumbs, chance
+      picker (roll/steal/draw, with real BalancedDice odds via the new
+      `DicePolicy.probabilities()`).
 - [ ] **CURRICULUM_SPEC.md** — six lesson tracks. ~2.5 days (content is
       the long pole). Better after EXPLAIN.
 

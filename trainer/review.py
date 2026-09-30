@@ -58,7 +58,7 @@ def _mark(action, state: GameState, actor: int, flag: str) -> dict | None:
     return {"kind": d["kind"], "target": d["target"], flag: True}
 
 
-def _build_row(i: int, state: GameState, actor: int, action, evals) -> dict:
+def _build_row(i: int, log_index: int, state: GameState, actor: int, action, evals) -> dict:
     best_eval = evals[0]
     chosen_eval = next(e for e in evals if e.action == action)
     q_best, q_chosen = best_eval.q, chosen_eval.q
@@ -92,6 +92,7 @@ def _build_row(i: int, state: GameState, actor: int, action, evals) -> dict:
     return {
         "i": i,
         "nth_decision": i + 1,
+        "log_index": log_index,   # ANALYSIS_SPEC entry point: replay the game to here
         "turn": state.turn_count,
         "chosen": {"label": chosen_label, "q": round(q_chosen, 4), "points": points},
         "best": {"label": best_label, "q": round(q_best, 4)},
@@ -182,12 +183,12 @@ class ReviewService:
         reviewer.begin_game(human)
         state = new_game(seed)
         i = 0
-        for entry in record["log"]:
+        for log_index, entry in enumerate(record["log"]):
             actor = entry["actor"]
             action = action_from_dict(entry["action"])
             if actor == human and len(legal_actions(state)) > 1:
                 evals = reviewer.evaluate(state, viewer=human)
-                row = _build_row(i, state, actor, action, evals)
+                row = _build_row(i, log_index, state, actor, action, evals)
                 self._results[review_id].append(row)
                 i += 1
             apply_action(state, action)

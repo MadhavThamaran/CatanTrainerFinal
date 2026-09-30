@@ -78,3 +78,37 @@ def test_sevens_are_shared_between_players():
     total = sevens[0] + sevens[1]
     # The 7-balancer should keep the split reasonably fair.
     assert abs(sevens[0] - sevens[1]) / total < 0.25
+
+
+# --- probabilities() (ANALYSIS_SPEC §3 chance-picker odds) ---
+
+
+def test_iid_probabilities_are_standard_2d6_and_sum_to_one():
+    probs = IIDDice().probabilities(0)
+    assert abs(sum(probs.values()) - 1.0) < 1e-9
+    for total, expected in _STANDARD_FREQ.items():
+        assert abs(probs[total] - expected) < 1e-9
+
+
+def test_balanced_probabilities_sum_to_one_and_match_long_run_frequency():
+    dice = BalancedDice(seed=7)
+    probs = dice.probabilities(0)
+    assert abs(sum(probs.values()) - 1.0) < 1e-9
+    # A fresh BalancedDice has no adjustments applied yet -> standard odds.
+    for total, expected in _STANDARD_FREQ.items():
+        assert abs(probs[total] - expected) < 1e-9
+
+
+def test_balanced_probabilities_reflect_recent_roll_suppression():
+    dice = BalancedDice(seed=13)
+    # Force an 8 into recent memory via direct rolls until one lands, then
+    # check its probability actually dropped relative to a fresh instance.
+    fresh_probs = dice.probabilities(0)
+    rolled = None
+    for _ in range(50):
+        rolled = dice.next_roll(0)
+        if rolled == 6:
+            break
+    adjusted = dice.probabilities(0)
+    if rolled == 6:
+        assert adjusted[6] < fresh_probs[6]

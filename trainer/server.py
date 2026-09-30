@@ -49,6 +49,7 @@ def make_handler(
     secure_cookies: bool,
     lab=None,
     lab_stats_for=None,
+    analysis=None,
 ):
     def _user_id(handler: BaseHTTPRequestHandler) -> int | None:
         cookie = _parse_cookie(handler.headers.get("Cookie"), "sid")
@@ -173,6 +174,17 @@ def make_handler(
                         self._json({"error": "unauthenticated"}, 401)
                         return
                     self._json(lab_stats_for(uid), 200)
+                elif path == "/api/analysis/tree":
+                    if analysis is None:
+                        self._json({"error": "analysis board not available on this deployment"}, 404)
+                        return
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    qs = parse_qs(query)
+                    result = analysis.tree(qs.get("analysis_id", [""])[0])
+                    self._json(result, 404 if "error" in result else 200)
                 else:
                     self._json({"error": "not found"}, 404)
             except Exception as exc:  # noqa: BLE001
@@ -221,6 +233,30 @@ def make_handler(
                         self._json({"error": "placement lab not available on this deployment"}, 404)
                         return
                     result = lab.act(req["drill"], int(req["codec_id"]))
+                    self._json(result, 404 if "error" in result else 200)
+                elif self.path == "/api/analysis/new":
+                    if analysis is None:
+                        self._json({"error": "analysis board not available on this deployment"}, 404)
+                        return
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    result = analysis.new_session(req["source"], req["id"], req.get("index"))
+                    self._json(result, 404 if "error" in result else 200)
+                elif self.path == "/api/analysis/eval":
+                    if analysis is None:
+                        self._json({"error": "analysis board not available on this deployment"}, 404)
+                        return
+                    result = analysis.eval(req["analysis_id"], req["node"])
+                    self._json(result, 404 if "error" in result else 200)
+                elif self.path == "/api/analysis/apply":
+                    if analysis is None:
+                        self._json({"error": "analysis board not available on this deployment"}, 404)
+                        return
+                    result = analysis.apply(
+                        req["analysis_id"], req["node"], req["codec_id"], req.get("forced"),
+                    )
                     self._json(result, 404 if "error" in result else 200)
                 else:
                     self._json({"error": "not found"}, 404)
@@ -290,16 +326,20 @@ def main() -> None:
     ap.add_argument("--lab-sims", type=int, default=256,
                      help="placement lab grading budget (single-seed, coarse-but-fast)")
     ap.add_argument("--lab-dets", type=int, default=4)
+    ap.add_argument("--analysis-sims", type=int, default=512,
+                     help="analysis board eval budget (perfect info, so this is exact)")
+    ap.add_argument("--analysis-dets", type=int, default=6)
     args = ap.parse_args()
 
     store = get_store(args.state)
     service = TrainerService(args.puzzles, store)
 
-    play, review, lab, lab_stats_for = None, None, None, None
+    play, review, lab, lab_stats_for, analysis = None, None, None, None, None
     if not args.no_play:
         from .play import PlayService
         from .review import ReviewService
         from .lab import LabService, stats_for as lab_stats_for
+        from .analysis import AnalysisService
 
         play = PlayService(
             ratings_for=service.ratings_for, default_rung=args.default_rung,
@@ -307,6 +347,10 @@ def main() -> None:
         )
         review = ReviewService(sims=args.review_sims, dets=args.review_dets)
         lab = LabService(sims=args.lab_sims, dets=args.lab_dets)
+        analysis = AnalysisService(
+            puzzle_by_id=service.puzzle_by_id,
+            sims=args.analysis_sims, dets=args.analysis_dets,
+        )
 
     session_secret = os.environ.get("SESSION_SECRET")
     if not session_secret:
@@ -319,7 +363,7 @@ def main() -> None:
         (args.host, args.port),
         make_handler(
             service, play, review, session_secret, secure_cookies,
-            lab=lab, lab_stats_for=lab_stats_for,
+            lab=lab, lab_stats_for=lab_stats_for, analysis=analysis,
         ),
     )
     print(f"catan tactics trainer: {len(service.puzzles)} puzzles loaded")

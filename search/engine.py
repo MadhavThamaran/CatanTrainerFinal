@@ -53,6 +53,8 @@ class MCTSEngine(Agent):
         use_net_priors: bool = True,
         use_net_value: bool = True,
         net_prior_mix: float = 1.0,
+        exact: bool = False,       # ANALYSIS_SPEC §4: state is already perfect,
+                                    # skip hidden-info resampling (see Determinizer)
     ):
         # rollout_depth=0 (pure static leaf) measured STRONGER than
         # truncated random-greedy rollouts at equal wall time: the weak
@@ -68,6 +70,7 @@ class MCTSEngine(Agent):
         self.use_net_priors = use_net_priors
         self.use_net_value = use_net_value
         self.net_prior_mix = net_prior_mix
+        self.exact = exact
         self._master_seed = seed
         self._rng = random.Random(seed)
         self._tracker: CardTracker | None = None
@@ -85,7 +88,8 @@ class MCTSEngine(Agent):
             return [MoveEval(actions[0], 0.5, 0)]
 
         determinizer = Determinizer(
-            self._tracker if self._tracker and self._tracker.viewer == viewer else None
+            self._tracker if self._tracker and self._tracker.viewer == viewer else None,
+            exact=self.exact,
         )
         totals: dict[Action, list] = {a: [0, 0.0] for a in actions}  # [N, sum(N*q)]
         trees = [

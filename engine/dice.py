@@ -40,6 +40,13 @@ class DicePolicy:
         chance outcomes from the same latent dice state."""
         raise NotImplementedError
 
+    def probabilities(self, active_player: int) -> dict[int, float]:
+        """P(total) for the NEXT roll, from `active_player`'s perspective
+        (ANALYSIS_SPEC §3's chance-picker odds — "the simulator exposes
+        its adjusted distribution"). Default: standard 2d6 combinatorics;
+        BalancedDice overrides with its own live-adjusted weights."""
+        return {t: len([p for p in _ALL_PAIRS if sum(p) == t]) / 36 for t in range(2, 13)}
+
 
 class IIDDice(DicePolicy):
     """Plain 2d6 — debugging/ablation baseline (rules.md §13.3 v1)."""
@@ -182,6 +189,17 @@ class BalancedDice(DicePolicy):
 
     def reseed(self, seed: int) -> None:
         self._rng = random.Random(seed)  # deck/memory/7-state untouched
+
+    def probabilities(self, active_player: int) -> dict[int, float]:
+        """The real live-adjusted odds (recent-roll suppression + 7
+        balancing), normalized to sum to 1 — same weights next_roll()
+        actually draws from."""
+        weights = self._weights(active_player)
+        mass = sum(weights.values())
+        if mass <= 0.0:
+            weights = {t: len(b) / self._cards_left for t, b in self._buckets.items()}
+            mass = sum(weights.values())
+        return {t: w / mass for t, w in weights.items()}
 
     def clone(self) -> "BalancedDice":
         c = BalancedDice(num_players=self._num_players)

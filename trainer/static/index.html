@@ -255,6 +255,37 @@
                                       letter-spacing: .5px; color: #8a7a58; }
   .labslotrow { display: flex; justify-content: space-between; font-size: 12.5px;
                 color: #5d4f33; padding: 2px 0; }
+  /* analysis board (ANALYSIS_SPEC) */
+  #analysisside { display: none; }
+  #analysisside .card { margin-bottom: 10px; }
+  .revealedrow { display: flex; justify-content: space-between; font-size: 13px;
+                 padding: 2px 0; color: #5d4f33; }
+  #revealedcontent { background: #fdf0d5; border-radius: 9px; padding: 8px 10px; }
+  .linerow { display: flex; align-items: center; gap: 8px; padding: 5px 2px;
+             cursor: pointer; border-radius: 6px; }
+  .linerow:hover { background: #efe7cf; }
+  .linelabel { flex: 1; font-size: 12.5px; color: #4a3b23; }
+  .lineqbar { width: 60px; height: 8px; background: #e9e2cd; border-radius: 4px; overflow: hidden; }
+  .lineqfill { height: 100%; background: #2563eb; }
+  .lineq { width: 34px; text-align: right; font-size: 11px; color: #8a7a58; }
+  #analysismoveslist { max-height: 180px; overflow-y: auto; font-size: 12.5px; }
+  .breadrow { padding: 3px 4px; cursor: pointer; border-radius: 5px; color: #5d4f33; }
+  .breadrow:hover { background: #efe7cf; }
+  .breadrow.current { background: #dbe7f7; font-weight: 800; color: #2d2418; }
+  #chancepicker { display: none; position: fixed; inset: 0; background: rgba(20,28,38,.55);
+                  z-index: 60; align-items: center; justify-content: center; }
+  #chancepickercard { background: #f7f1df; border-radius: 16px; padding: 22px 26px;
+                       width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+  #chancepickercard h3 { margin: 0 0 12px; font-size: 15px; }
+  .chanceopt { display: flex; justify-content: space-between; align-items: center;
+               padding: 8px 10px; margin-bottom: 6px; background: #eaf3fb; border-radius: 8px;
+               cursor: pointer; font-size: 13px; }
+  .chanceopt:hover { background: #dbe7f7; }
+  .chanceopt .odds { color: #8a7a58; font-size: 11.5px; }
+  #chancerandom { margin-top: 8px; width: 100%; background: #6b7280; border: none; color: #fff;
+                  font-weight: 800; padding: 9px; border-radius: 8px; cursor: pointer; }
+  #chancecancel { margin-top: 6px; width: 100%; background: none; border: none;
+                  color: #8a7a58; padding: 6px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -328,6 +359,21 @@
         <div id="labstats"></div>
       </div>
     </div>
+    <div id="analysisside">
+      <div class="card" id="analysisrevealed">
+        <h3>Revealed (perfect info)</h3>
+        <div id="revealedcontent"></div>
+      </div>
+      <div class="card" id="analysislinescard">
+        <h3>Engine lines</h3>
+        <div id="analysislinesbody" class="dempty">Pick a move to see it evaluated.</div>
+      </div>
+      <div class="card" id="analysismovescard">
+        <h3>Line</h3>
+        <div id="analysismoveslist"></div>
+        <button class="labbtn" onclick="closeAnalysis()">✕ Close analysis</button>
+      </div>
+    </div>
     <div class="card" id="reviewcard">
       <h3>Game review</h3>
       <div id="reviewprogress"></div>
@@ -338,6 +384,8 @@
         <svg id="reviewgraph" viewBox="0 0 300 64" preserveAspectRatio="none"></svg>
         <div id="reviewlist"></div>
         <div id="reviewwhy"></div>
+        <button class="labbtn" id="reviewanalyzebtn" style="display:none;background:#7c3aed"
+                onclick="openAnalysis('game', REVIEW.reviewId, REVIEW.rows[REVIEW.selected].log_index)">🔬 Analyze this decision</button>
         <button id="reviewback" onclick="backToGame()">↩ Back to game</button>
       </div>
     </div>
@@ -347,6 +395,8 @@
       <table><thead><tr><th>#</th><th>Move</th><th>Win %</th><th>Pts</th></tr></thead>
       <tbody id="table"></tbody></table>
       <button id="next" onclick="loadNext()">Next puzzle →</button>
+      <button class="labbtn" id="analyzebtn" style="background:#7c3aed"
+              onclick="openAnalysis('puzzle', PZ.puzzle_id)">🔬 Analyze</button>
     </div>
   </div>
 </div>
@@ -387,6 +437,14 @@
         Rated — no coach, counts for Elo + stars</label>
     </div>
     <button id="ladderstart" disabled onclick="startLadderGame()">Pick an opponent</button>
+  </div>
+</div>
+<div id="chancepicker">
+  <div id="chancepickercard">
+    <h3 id="chancetitle">Choose the outcome</h3>
+    <div id="chanceopts"></div>
+    <button id="chancerandom" onclick="resolveChance(null)">🎲 Random</button>
+    <button id="chancecancel" onclick="hideChancePicker()">Cancel</button>
   </div>
 </div>
 <script>
@@ -1094,6 +1152,214 @@ function renderLabStats(s) {
     `<div class="dsub">${s.n} of your last settlement picks</div>${slots}${statements}`;
 }
 
+/* ---- analysis board (ANALYSIS_SPEC) ---- */
+
+let ANALYSIS_ID = null;
+let ANALYSIS_NODES = {};    // node_id -> full node view (visited-node cache)
+let ANALYSIS_PATH = [];     // node ids, root..current (the line being explored)
+let ANALYSIS_LABELS = {};   // node_id -> the move label that led to it ("start" for root)
+let ANALYSIS_RETURN_MODE = "trainer";   // mode to restore on close
+let PENDING_CHANCE = null;  // {move} while the picker is open
+
+async function openAnalysis(source, id, index) {
+  if (!id) return;
+  closeReview();
+  hideCoachCard();
+  ANALYSIS_RETURN_MODE = APP_MODE === "analysis" ? ANALYSIS_RETURN_MODE : APP_MODE;
+  APP_MODE = "analysis";
+  document.getElementById("mode-trainer").classList.remove("active");
+  document.getElementById("mode-play").classList.remove("active");
+  document.getElementById("mode-lab").classList.remove("active");
+  document.getElementById("gamelog").style.display = "none";
+  document.getElementById("labside").style.display = "none";
+  document.getElementById("analysisside").style.display = "block";
+  document.getElementById("pinfo").style.display = "none";
+  document.getElementById("coachbadge").style.display = "none";
+  document.getElementById("prompttext").textContent = "Loading position…";
+  const body = { source, id };
+  if (index !== undefined && index !== null) body.index = index;
+  const r = await fetch("/api/analysis/new", { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const res = await r.json();
+  if (res.error) { showFatal(`/api/analysis/new -> ${res.error}`); return; }
+  ANALYSIS_ID = res.analysis_id;
+  ANALYSIS_NODES = { root: res.root };
+  ANALYSIS_PATH = ["root"];
+  ANALYSIS_LABELS = { root: "start" };
+  applyAnalysisNode(res.root);
+}
+
+function closeAnalysis() {
+  ANALYSIS_ID = null; ANALYSIS_NODES = {}; ANALYSIS_PATH = [];
+  document.getElementById("analysisside").style.display = "none";
+  switchMode(ANALYSIS_RETURN_MODE);
+}
+
+function applyAnalysisNode(node) {
+  ANALYSIS_NODES[node.node] = node;
+  if (ANALYSIS_PATH[ANALYSIS_PATH.length - 1] !== node.node) {
+    const existing = ANALYSIS_PATH.indexOf(node.node);
+    if (existing >= 0) ANALYSIS_PATH = ANALYSIS_PATH.slice(0, existing + 1);
+    else ANALYSIS_PATH.push(node.node);
+  }
+  PZ = node; locked = false; mode = null; staged = null; stagedRoad = null;
+  movesByCat = {};
+  for (const m of node.moves) (movesByCat[m.category] ||= []).push(m);
+  document.getElementById("counter").textContent = "🔬 analysis (perfect info)";
+  document.getElementById("prompttext").textContent =
+    node.game_over
+      ? (node.winner === "draw" ? "Game over — draw." : `Game over — ${node.winner} wins.`)
+      : "Your move — or force the dice.";
+  document.getElementById("stagedbar").style.display = "none";
+  renderSide(); renderActionBar(); renderBoard(); renderStaged();
+  renderRevealed(node.revealed);
+  renderAnalysisLine();
+  document.getElementById("analysislinesbody").innerHTML =
+    '<div class="dempty">Pick a move to see it evaluated.</div>';
+  if (!node.game_over) refreshAnalysisLines();
+}
+
+function renderRevealed(revealed) {
+  const rows = [];
+  const hand = Object.entries(revealed.opp_hand);
+  rows.push(`<div class="revealedrow"><span>Opponent hand</span><span>${
+    hand.length ? hand.map(([r, n]) => `${n} ${RESICON[r] || r}`).join(" ") : "empty"
+  }</span></div>`);
+  const devs = Object.entries(revealed.opp_devs);
+  if (devs.length) rows.push(`<div class="revealedrow"><span>Opponent dev cards</span><span>${
+    devs.map(([c, n]) => `${n} ${c.replace(/_/g, " ")}`).join(", ")
+  }</span></div>`);
+  rows.push(`<div class="revealedrow"><span>Dev deck</span><span>${revealed.deck_count} left</span></div>`);
+  document.getElementById("revealedcontent").innerHTML = rows.join("");
+}
+
+async function refreshAnalysisLines() {
+  const node = ANALYSIS_PATH[ANALYSIS_PATH.length - 1];
+  const r = await fetch("/api/analysis/eval", { method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ analysis_id: ANALYSIS_ID, node }) });
+  const res = await r.json();
+  if (res.error) return;
+  renderAnalysisLines(res.lines, node);
+}
+
+function renderAnalysisLines(lines, forNode) {
+  if (forNode !== ANALYSIS_PATH[ANALYSIS_PATH.length - 1]) return;   // stale response
+  const box = document.getElementById("analysislinesbody");
+  if (!lines.length) { box.innerHTML = '<div class="dempty">No lines (game over).</div>'; return; }
+  box.innerHTML = "";
+  const top = lines[0].q || 0.0001;
+  for (const line of lines) {
+    const row = document.createElement("div");
+    row.className = "linerow";
+    row.innerHTML =
+      `<span class="linelabel">${emojify(line.label)}</span>` +
+      `<span class="lineqbar"><span class="lineqfill" style="width:${Math.round(line.q * 100)}%"></span></span>` +
+      `<span class="lineq">${Math.round(line.q * 100)}%</span>`;
+    row.onclick = () => analysisStage(line);
+    box.appendChild(row);
+  }
+}
+
+function renderAnalysisLine() {
+  const list = document.getElementById("analysismoveslist");
+  list.innerHTML = "";
+  ANALYSIS_PATH.forEach((nid, i) => {
+    const row = document.createElement("div");
+    row.className = "breadrow" + (i === ANALYSIS_PATH.length - 1 ? " current" : "");
+    row.textContent = emojify(ANALYSIS_LABELS[nid] || "…");
+    row.onclick = () => {
+      if (!ANALYSIS_NODES[nid]) return;
+      ANALYSIS_PATH = ANALYSIS_PATH.slice(0, i + 1);
+      applyAnalysisNode(ANALYSIS_NODES[nid]);
+    };
+    list.appendChild(row);
+  });
+}
+
+// Entry point for board/action-bar clicks in analysis mode (see stage()).
+function analysisStage(move) {
+  if (locked) return;
+  if (move.category === "roll") { showChancePicker("roll", move); return; }
+  if (move.category === "robber") {
+    const hand = (PZ.revealed && PZ.revealed.opp_hand) || {};
+    if (Object.keys(hand).length) { showChancePicker("steal", move); return; }
+    analysisApply(move, null);
+    return;
+  }
+  if (move.category === "buy_dev") {
+    const deck = (PZ.revealed && PZ.revealed.deck) || {};
+    if (Object.keys(deck).length) { showChancePicker("draw", move); return; }
+    analysisApply(move, null);
+    return;
+  }
+  analysisApply(move, null);
+}
+
+async function analysisApply(move, forced) {
+  if (locked) return;
+  locked = true;
+  const node = ANALYSIS_PATH[ANALYSIS_PATH.length - 1];
+  const r = await fetch("/api/analysis/apply", { method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ analysis_id: ANALYSIS_ID, node, codec_id: move.codec_id, forced }) });
+  const res = await r.json();
+  if (res.error) { locked = false; showFatal(`/api/analysis/apply -> ${res.error}`); return; }
+  ANALYSIS_LABELS[res.node.node] = emojify(move.label) + (forced ? " (forced)" : "");
+  applyAnalysisNode(res.node);
+}
+
+function showChancePicker(kind, move) {
+  PENDING_CHANCE = { move };
+  const opts = document.getElementById("chanceopts");
+  opts.innerHTML = "";
+  if (kind === "roll") {
+    document.getElementById("chancetitle").textContent = "Force the roll";
+    const probs = PZ.dice_probs || null;
+    for (let t = 2; t <= 12; t++) {
+      const odds = probs && probs[t] != null ? `${Math.round(probs[t] * 100)}%` : "";
+      const o = document.createElement("div");
+      o.className = "chanceopt";
+      o.innerHTML = `<span>${t}</span><span class="odds">${odds}</span>`;
+      o.onclick = () => resolveChance({ roll: t });
+      opts.appendChild(o);
+    }
+  } else if (kind === "steal") {
+    document.getElementById("chancetitle").textContent = "Force the steal";
+    const hand = (PZ.revealed && PZ.revealed.opp_hand) || {};
+    for (const [res, n] of Object.entries(hand)) {
+      const o = document.createElement("div");
+      o.className = "chanceopt";
+      o.innerHTML = `<span>${RESICON[res] || res} ${res}</span><span class="odds">×${n}</span>`;
+      o.onclick = () => resolveChance({ steal: res });
+      opts.appendChild(o);
+    }
+  } else if (kind === "draw") {
+    document.getElementById("chancetitle").textContent = "Force the dev-card draw";
+    const deck = (PZ.revealed && PZ.revealed.deck) || {};
+    for (const [card, n] of Object.entries(deck)) {
+      const o = document.createElement("div");
+      o.className = "chanceopt";
+      o.innerHTML = `<span>${card.replace(/_/g, " ")}</span><span class="odds">×${n}</span>`;
+      o.onclick = () => resolveChance({ draw: card });
+      opts.appendChild(o);
+    }
+  }
+  document.getElementById("chancepicker").style.display = "flex";
+}
+
+function hideChancePicker() {
+  document.getElementById("chancepicker").style.display = "none";
+  PENDING_CHANCE = null;
+}
+
+function resolveChance(forced) {
+  const move = PENDING_CHANCE && PENDING_CHANCE.move;
+  hideChancePicker();
+  if (!move) return;
+  analysisApply(move, forced);
+}
+
 /* ---- post-game review (REVIEW_SPEC) ---- */
 
 const VERDICT_META = {
@@ -1230,6 +1496,7 @@ function selectReviewRow(i) {
     `Decision ${row.nth_decision}: ${VERDICT_META[row.verdict].label}` +
     ` (${row.chosen.points > 0 ? "+" : ""}${row.chosen.points} pts)`;
   document.getElementById("reviewwhy").textContent = row.why ? emojify(row.why) : "";
+  document.getElementById("reviewanalyzebtn").style.display = "";
   renderReviewList(REVIEW.rows);
 }
 
@@ -1513,6 +1780,10 @@ function stage(move) {
     if (!locked) labPick(move.codec_id);
     return;
   }
+  if (APP_MODE === "analysis") {
+    if (!locked) analysisStage(move);
+    return;
+  }
   staged = move;
   if (move.category === "setup_settlement") stagedRoad = null;
   renderStaged(); renderBoard();
@@ -1537,8 +1808,8 @@ function clearStaged() {
 function renderStaged() {
   const lbl = document.getElementById("stagedlabel");
   const btn = document.getElementById("submit");
-  if (APP_MODE === "lab") {
-    // The lab has its own grade/summary cards; no staged bar at all.
+  if (APP_MODE === "lab" || APP_MODE === "analysis") {
+    // Both have their own sidebar cards; no staged bar at all.
     document.getElementById("stagedbar").style.display = "none";
     return;
   }

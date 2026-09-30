@@ -52,6 +52,11 @@ class TrainerService:
             r = self._ratings_cache[user_id] = Ratings(self.store, user_id)
         return r
 
+    def puzzle_by_id(self, puzzle_id: str):
+        """ANALYSIS_SPEC §5 puzzle source: the stored (perfect) Puzzle, or
+        None. Public on purpose — analysis.py needs it, not just this file."""
+        return self._by_id.get(puzzle_id)
+
     # --- presentation ---
 
     def dashboard(self, user_id: int) -> dict:

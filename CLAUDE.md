@@ -7,7 +7,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~1-4min, 203 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 221 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
@@ -32,8 +32,12 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 ## Current state (2026-09-30)
 
 - **Champion: `checkpoints/gen7.pt`** (75/100 vs raw engine; gen-8 was
-  NOT promoted — 218/400, CI-LB < 50%). Gen-9 (scaled to this machine's
-  measured throughput — see seed ledger below) running in the background.
+  NOT promoted — 218/400, CI-LB < 50%). Gen-9 self-play (scaled to this
+  machine's measured throughput — see seed ledger below) finished
+  2026-09-30 (500/500 games, `data/gen9_0..4.npz`);
+  `scripts/gen9_after_scaled.sh` is running the train+gate pipeline
+  against `checkpoints/gen9.pt` in the background — see
+  `data/gen9_report.txt` once it lands for the promotion verdict.
 - **Puzzles: `data/puzzles_v5.jsonl`, 3,413 net-labeled** (trainer
   default). Labeling engine is gen-6 by policy (see ROADMAP B3).
 - Promotion standard: 200-game head-to-head, CI lower bound > 50%.
@@ -92,6 +96,18 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   deltas + threshold statements over the last 50 settlement picks,
   n>=15 gated). Client: `🧪 Placement lab` mode, grade card, drill
   summary, stats card.
+- **Analysis board (ANALYSIS_SPEC.md) shipped**: `engine/chance.py` —
+  `force_next_roll`/`force_next_steal`/`force_next_draw` (each a
+  one-shot override that consumes zero extra entropy, so the stream
+  after is bit-identical to unforced); `search/determinize.py`'s
+  `Determinizer(exact=True)` skips hidden-info resampling for the
+  already-perfect states analysis explores. `trainer/analysis.py`:
+  content-addressed node tree (same forced line reuses the node + its
+  cached eval; unforced/"random" always forks fresh), 200-node cap
+  errors instead of pruning. `/api/analysis/new|eval|apply|tree`. Client:
+  "Analyze" on puzzle results + review rows (a 4th APP_MODE reusing the
+  board/marks/action-bar idioms), revealed-hands card, engine-lines
+  card, chance picker with real odds (`DicePolicy.probabilities()`, new).
 - Play mode records every game to `data/games/` (replayable logs) — the
   foundation review stands on.
 - `docs/EXECUTION_INDEX.md` orders all forward work; each feature has a
@@ -144,5 +160,5 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Explanatory strings shown to users derive ONLY from computed facts —
   no vibes (see EXPLAIN_SPEC honesty rules; same contract in lab,
   dashboard, coach specs).
-- Tests are the porting/refactor contract: 203 passing, spec-mapped
+- Tests are the porting/refactor contract: 221 passing, spec-mapped
   files per feature (`tests/test_<feature>.py`).

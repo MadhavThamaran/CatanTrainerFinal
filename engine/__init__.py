@@ -8,6 +8,7 @@ Public API:
 from .actions import Action, ActionType
 from .board import Board
 from .board_gen import generate_board, validate_board
+from .chance import force_next_draw, force_next_roll, force_next_steal
 from .dice import BalancedDice, DicePolicy, IIDDice, ScriptedDice
 from .game import new_game
 from .longest_road import longest_road_length
@@ -34,6 +35,9 @@ __all__ = [
     "Terrain",
     "TOPOLOGY",
     "apply_action",
+    "force_next_draw",
+    "force_next_roll",
+    "force_next_steal",
     "generate_board",
     "legal_actions",
     "longest_road_length",
