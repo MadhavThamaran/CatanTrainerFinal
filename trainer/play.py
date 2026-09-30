@@ -1,10 +1,11 @@
-"""Play-vs-bot mode: live games against the champion net-guided engine.
+"""Play-vs-bot mode: live games against a bot ladder rung (LADDER_SPEC).
 
 Sessions hold a real `GameState`; the human sees the observation-level
-view (the bot's hand stays server-side). The bot is an `MCTSEngine` with
-the champion checkpoint, fed observations through the normal Agent hooks
-so its CardTracker keeps exact beliefs about the human's hand — the same
-machinery it uses in gated matches.
+view (the bot's hand stays server-side). The bot is whatever `Agent` the
+chosen rung resolves to (`trainer/ladder.py::make_bot`) — HeuristicAgent,
+raw MCTS, or net-guided MCTS — fed observations through the normal Agent
+hooks so a search-based bot's CardTracker keeps exact beliefs about the
+human's hand, the same machinery it uses in gated matches.
 
 Turn loop: after every human action the service auto-plays everything that
 is not a human decision — the bot's whole turn and any forced single-action
@@ -33,6 +34,7 @@ from search import MCTSEngine
 
 from puzzles.scoring import VERDICT_FOR_POINTS, points_for_regret
 
+from . import ladder
 from .actions import describe_move
 from .layout import LAYOUT
 from .service import board_state, context
@@ -40,11 +42,15 @@ from .service import board_state, context
 _MAX_SESSIONS = 8
 _MAX_ACTIONS = 6000
 
-# COACH_SPEC §3: the coach is exactly as strong as the bot's own play
-# budget by default — honest (no unfair omniscience) and fast.
+# COACH_SPEC §3: the coach judges at a fixed, strong reference regardless of
+# the ladder rung you're playing — its job is to grade YOUR moves honestly,
+# not to get weaker just because you picked an easy opponent.
 COACH_SIMS = 160
 COACH_DETS = 4
+COACH_NET_PATH = "checkpoints/gen7.pt"
 COACH_SEVERITY = {"strict": 0.05, "normal": 0.10, "blunders-only": 0.15}
+
+DEFAULT_RUNG = 6   # Master: gen7 s=160 k=4 — the pre-ladder default bot
 
 
 _GAMES_DIR = Path("data/games")
@@ -115,44 +121,42 @@ class PlaySession:
         self,
         sid: str,
         seed: int,
-        net_path: str,
-        sims: int,
-        dets: int,
+        rung: int,
+        rated: bool,
+        ratings=None,   # trainer.elo.Ratings for the human, or None (anonymous/test)
         coach: bool = False,
         coach_sims: int = COACH_SIMS,
         coach_dets: int = COACH_DETS,
     ):
         self.sid = sid
         self.seed = seed
-        self.net_path = net_path
+        self.rung = rung
+        self.rated = rated
+        self.ratings = ratings
+        # Kept for REVIEW_SPEC (`record["bot"]`, reviewed at deeper search
+        # over the SAME net the bot used — None for the no-net rungs).
+        self.net_path = ladder.get_rung(rung).net_path
         self.log: list[dict] = []      # replayable record (REVIEW_SPEC §2a)
         self._persisted = False
+        self._ladder_deltas: dict | None = None
         self.state = new_game(seed)
         self.human = seed % 2          # alternate seats across seeds
         self.bot_seat = 1 - self.human
-        net = None
-        if net_path is not None:
-            from net.evaluator import get_evaluator
-
-            net = get_evaluator(net_path)
-        self.bot = MCTSEngine(
-            simulations=sims,
-            determinizations=dets,
-            seed=seed * 31 + 7,
-            net=net,
-        )
+        self.bot = ladder.make_bot(rung, seed=seed * 31 + 7)
         self.bot.begin_game(self.bot_seat)
-        # COACH_SPEC §3: same checkpoint as the bot, judged from the human's
-        # information set — always built (its cost is opt-in via evaluate()
-        # calls, gated by coach_on) so a mid-game toggle-on has an
-        # up-to-date CardTracker instead of a blind one.
+        # COACH_SPEC §3: judged from the human's information set — always
+        # built (its cost is opt-in via evaluate() calls, gated by
+        # coach_on) so a mid-game toggle-on has an up-to-date CardTracker
+        # instead of a blind one.
         self.coach_on = coach
         self.coach_severity = "normal"
+        from net.evaluator import get_evaluator
+
         self.coach_engine = MCTSEngine(
             simulations=coach_sims,
             determinizations=coach_dets,
             seed=seed * 31 + 13,
-            net=net,
+            net=get_evaluator(COACH_NET_PATH),
         )
         self.coach_engine.begin_game(self.human)
         self._coach_cache: tuple[int, list] | None = None
@@ -209,16 +213,30 @@ class PlaySession:
             self._persist()
 
     def _persist(self) -> None:
-        """Write the replayable game record (feeds post-game review)."""
+        """Write the replayable game record (feeds post-game review) and,
+        once (LADDER_SPEC §3), settle the ladder: unlocks always move on a
+        win; play-Elo/W-L/stars move only in rated games."""
         if self._persisted:
             return
         self._persisted = True
+        winner_str = (
+            "you" if self.state.winner == self.human
+            else "bot" if self.state.winner == self.bot_seat
+            else "draw"
+        )
+        if self.ratings is not None:
+            self._ladder_deltas = ladder.record_game(
+                self.ratings.ladder, self.rung, self.rated, winner_str
+            )
+            self.ratings.save()
         _GAMES_DIR.mkdir(parents=True, exist_ok=True)
         record = {
             "sid": self.sid,
             "seed": self.seed,
             "human": self.human,
             "bot": self.net_path,
+            "rung": self.rung,
+            "rated": self.rated,
             "log": self.log,
             "winner": self.state.winner,
             "final_vp": [self.state.total_vp(0), self.state.total_vp(1)],
@@ -337,6 +355,7 @@ class PlaySession:
         if over:
             self._persist()   # covers action-cap draws too
         events, self.events = self.events, []   # drain: each event ships once
+        rung_cfg = ladder.get_rung(self.rung)
         payload = {
             "session": self.sid,
             "game_over": over,
@@ -347,6 +366,10 @@ class PlaySession:
                 else "draw"
             ),
             "your_seat": self.human,
+            "rung": self.rung,
+            "rung_name": rung_cfg.name,
+            "rated": self.rated,
+            "ladder": self._ladder_deltas,
             "layout": LAYOUT,
             "board": board_state(st, self.human),
             "context": context(st, self.human),
@@ -388,28 +411,39 @@ class PlaySession:
 class PlayService:
     def __init__(
         self,
-        net_path: str = "checkpoints/gen7.pt",
-        sims: int = 160,
-        dets: int = 4,
+        ratings_for=None,          # Callable[[int], Ratings] | None (tests: anonymous)
+        default_rung: int = DEFAULT_RUNG,
         coach_sims: int = COACH_SIMS,
         coach_dets: int = COACH_DETS,
     ):
-        self.net_path = net_path
-        self.sims = sims
-        self.dets = dets
+        self.ratings_for = ratings_for
+        self.default_rung = default_rung
         self.coach_sims = coach_sims
         self.coach_dets = coach_dets
         self._sessions: dict[str, PlaySession] = {}
         self._lock = threading.Lock()
         self._rng = random.Random()
 
-    def new_game(self, seed: int | None = None, coach: bool = False) -> dict:
+    def new_game(
+        self,
+        user_id: int | None = None,
+        seed: int | None = None,
+        rung: int | None = None,
+        rated: bool = False,
+        coach: bool = False,
+    ) -> dict:
+        rung = self.default_rung if rung is None else rung
+        if not (ladder.MIN_RUNG <= rung <= ladder.MAX_RUNG):
+            return {"error": f"no such rung: {rung}"}
         with self._lock:
+            ratings = self.ratings_for(user_id) if (self.ratings_for and user_id is not None) else None
+            if ratings is not None and not ladder.is_unlocked(ratings.ladder, rung):
+                return {"error": f"rung {rung} is locked"}
             if seed is None:
                 seed = self._rng.randrange(300_000, 400_000)
             sid = f"g{seed}-{self._rng.randrange(1 << 30):08x}"
             s = PlaySession(
-                sid, seed, self.net_path, self.sims, self.dets,
+                sid, seed, rung, rated, ratings=ratings,
                 coach=coach, coach_sims=self.coach_sims, coach_dets=self.coach_dets,
             )
             self._sessions[sid] = s

@@ -420,20 +420,28 @@ uv run python -m net.selfplay --games 500 --net checkpoints/big1.pt \
     --z-weight 0.75 --seed-offset 5000 --out data/big2_0.npz
 ```
 
-## Play mode
+## Play mode: the bot ladder
 
-The trainer app now has a second mode: **play a live 1v1 against the
-champion engine** (`trainer/play.py`; toggle in the top-left of the UI).
-Sessions hold a real `GameState`; you see the observation view (the bot's
-hand stays server-side) while the bot runs the full gauntlet — net-guided
-MCTS with exact card-tracking of *your* hand, ~1s per move at the standard
-play config (`--bot`, `--bot-sims` on `trainer.server`). The service
-auto-plays forced steps (rolls) and the bot's turns, streaming an event
-log; discards on 7s get a pick-your-cards UI with a confirm (the one
-action the codec can't express). Actions apply instantly on click,
-colonist-style — take as many as you want, then ⏭ End turn; only the
-trainer stages moves behind a Submit (a puzzle answer is one scored
-commitment). Same board renderer and action composer as the trainer.
+The trainer app now has a second mode: **play a live 1v1 against the bot
+ladder** (`trainer/play.py`, `trainer/ladder.py`; toggle in the top-left
+of the UI, login required). Eight named rungs package the archive of
+training generations into a progression — Settler (the raw heuristic, no
+search) up through The Engine (gen7, sims=800/dets=6); rungs 1-3 start
+unlocked, beating a rung unlocks the next. A separate play-Elo (K=24,
+starting 1200) moves only in RATED games against each rung's fixed
+rating; casual games (coach allowed) still unlock rungs but don't move
+Elo or stars. Sessions hold a real `GameState`; you see the observation
+view (the bot's hand stays server-side) while the bot runs the full
+gauntlet for the chosen rung — net-guided MCTS with exact card-tracking
+of *your* hand where the rung has a net. The service auto-plays forced
+steps (rolls) and the bot's turns, streaming an event log; discards on 7s
+get a pick-your-cards UI with a confirm (the one action the codec can't
+express). Actions apply instantly on click, colonist-style — take as
+many as you want, then ⏭ End turn; only the trainer stages moves behind
+a Submit (a puzzle answer is one scored commitment). Same board renderer
+and action composer as the trainer. Rung Elo ratings are provisional
+(declared guesses) until `scripts/ladder_calibrate.py`'s measurement
+pass is run.
 
 ## The puzzle pipeline (Stage 6 / M6)
 

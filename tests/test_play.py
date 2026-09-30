@@ -5,8 +5,9 @@ from trainer.play import PlayService
 
 
 def _svc():
-    # Heuristic bot at tiny budget: fast enough to play full games in tests.
-    return PlayService(net_path=None, sims=8, dets=2)
+    # Rung 1 (HeuristicAgent, no search): fast enough to play full games in
+    # tests. No ratings_for -> anonymous, ladder tracking is a no-op.
+    return PlayService(default_rung=1)
 
 
 def _play_out(svc, view, rng, max_steps=3000):

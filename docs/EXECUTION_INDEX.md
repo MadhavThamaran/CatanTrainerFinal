@@ -43,8 +43,13 @@ don't re-design. Statuses as of 2026-08-14.
       backfills the existing puzzle set.
 
 ## Phase 3 — depth
-- [ ] **LADDER_SPEC.md** — bot ladder + overnight calibration run.
-      ~1.5 days + one unattended night.
+- [x] **LADDER_SPEC.md** — bot ladder. DONE 2026-09-29: `trainer/ladder.py`
+      (8 rungs, `make_bot`, unlock/star/Elo math), play mode now requires
+      login and takes `?rung=&rated=`, `/api/ladder` for the pre-game
+      screen, per-user ladder state in `Ratings.ladder`. Client: rung-card
+      picker, in-game rung/rated badge, unlock/Elo toast, Rematch.
+      `scripts/ladder_calibrate.py` written but NOT YET RUN (the real
+      ~8-10h measurement pass) — rungs report provisional Elo until it is.
 - [ ] **PLACEMENT_LAB_SPEC.md** — placement drills + bias analytics.
       ~1.5–2 days. Better after EXPLAIN.
 - [ ] **ANALYSIS_SPEC.md** — analysis board with choosable dice. ~2

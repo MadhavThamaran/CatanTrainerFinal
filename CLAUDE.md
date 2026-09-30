@@ -7,7 +7,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~1-4min, 178 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 192 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
@@ -71,6 +71,16 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   `scripts/annotate_explanations.py`), the puzzle result screen +
   "yours missed X" (`trainer/service.py::_explain`), and post-game review
   rows (`trainer/review.py`'s `row.why`).
+- **Bot ladder (LADDER_SPEC.md) shipped**: `trainer/ladder.py` — 8 rungs
+  (Settler..The Engine, `make_bot` resolves HeuristicAgent/raw MCTS/net
+  MCTS per rung), per-user state in `Ratings.ladder` (play-Elo K=24,
+  W/L/stars/unlocks, `record_game` pure function). **Play mode now
+  requires login** (it didn't before this). `/api/play/new?rung=&rated=`,
+  `/api/ladder` for the pre-game rung-picker screen; game records gain
+  `rung`/`rated`. Coach judges at a fixed reference net regardless of
+  rung (COACH_SPEC's own logic untouched). Ratings are PROVISIONAL
+  (declared guesses) until `scripts/ladder_calibrate.py`'s ~8-10h
+  measurement pass is actually run — written but not yet executed.
 - Play mode records every game to `data/games/` (replayable logs) — the
   foundation review stands on.
 - `docs/EXECUTION_INDEX.md` orders all forward work; each feature has a
@@ -121,5 +131,5 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Explanatory strings shown to users derive ONLY from computed facts —
   no vibes (see EXPLAIN_SPEC honesty rules; same contract in lab,
   dashboard, coach specs).
-- Tests are the porting/refactor contract: 165 passing, spec-mapped
+- Tests are the porting/refactor contract: 192 passing, spec-mapped
   files per feature (`tests/test_<feature>.py`).

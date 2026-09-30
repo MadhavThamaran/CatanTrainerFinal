@@ -136,6 +136,8 @@
   #reviewbtn { margin-top: 8px; width: 100%; background: #7c3aed; border: none; color: #fff;
                font-size: 14px; font-weight: 800; padding: 9px; border-radius: 9px; cursor: pointer; }
   #reviewbtn:disabled { background: #9aa0a6; cursor: default; }
+  #rematchbtn { margin-top: 8px; width: 100%; background: #d97706; border: none; color: #fff;
+                font-size: 14px; font-weight: 800; padding: 9px; border-radius: 9px; cursor: pointer; }
   #reviewcard { display: none; }
   #reviewprogress { font-size: 13px; color: #8a7a58; margin: 4px 0 8px; }
   #reviewaccuracy { font-size: 30px; font-weight: 900; margin: 0 0 2px; color: #2d2418; }
@@ -212,6 +214,36 @@
   .cost-stage { display: flex; justify-content: space-between; font-size: 12.5px;
                 padding: 3px 0; color: #5d4f33; }
   .trend-up { color: #15803d; } .trend-down { color: #b91c1c; } .trend-flat { color: #8a7a58; }
+  /* bot ladder (LADDER_SPEC) */
+  #ladderoverlay { display: none; position: fixed; inset: 0; background: #cfe0ec;
+                   z-index: 40; overflow-y: auto; }
+  #ladderinner { max-width: 620px; margin: 0 auto; padding: 60px 20px 40px; }
+  #ladderback { position: fixed; top: 12px; left: 16px; z-index: 41; }
+  #ladderelo { text-align: center; font-size: 14px; color: #5d4f33; margin-bottom: 14px; }
+  #ladderelo b { font-size: 20px; color: #2d2418; }
+  .rungcard { display: flex; align-items: center; gap: 12px; background: #f7f1df;
+              border-radius: 14px; padding: 12px 16px; margin-bottom: 10px;
+              box-shadow: 0 2px 6px rgba(0,0,0,.15); cursor: pointer;
+              border: 2px solid transparent; }
+  .rungcard.sel { border-color: #2563eb; }
+  .rungcard.locked { opacity: .5; cursor: default; }
+  .rungicon { font-size: 28px; width: 40px; text-align: center; flex-shrink: 0; }
+  .rungmain { flex: 1; min-width: 0; }
+  .rungname { font-weight: 800; font-size: 15px; color: #2d2418; }
+  .rungsub { font-size: 12px; color: #8a7a58; }
+  .rungstars { font-size: 13px; color: #d97706; }
+  .rungelo { text-align: right; font-size: 12px; color: #5d4f33; flex-shrink: 0; }
+  .rungelo b { display: block; font-size: 16px; color: #2d2418; }
+  #ladderoptions { display: flex; gap: 14px; justify-content: center; margin: 16px 0;
+                   font-size: 13.5px; color: #5d4f33; }
+  #ladderoptions label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  #ladderstart { width: 100%; background: #16a34a; border: none; color: #fff;
+                 font-size: 15px; font-weight: 800; padding: 12px; border-radius: 10px;
+                 cursor: pointer; box-shadow: 0 3px 8px rgba(0,0,0,.25); }
+  #ladderstart:disabled { background: #9aa0a6; cursor: default; }
+  #laddertoast { display: none; background: #fff7ed; border: 2px solid #fb923c;
+                 border-radius: 12px; padding: 10px 14px; margin: 8px 0; font-size: 13px;
+                 color: #7c2d12; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -258,8 +290,10 @@
     <div class="card" id="gamelog">
       <h3>Game log</h3>
       <div id="loglines"></div>
+      <div id="laddertoast"></div>
       <button id="reviewbtn" style="display:none" onclick="startReview()">📊 Review game</button>
-      <button id="newgame" onclick="loadGame()">🔄 New game</button>
+      <button id="rematchbtn" style="display:none" onclick="loadGame()">🔁 Rematch</button>
+      <button id="newgame" onclick="showLadderScreen()">🎮 Choose opponent</button>
     </div>
     <div class="card" id="reviewcard">
       <h3>Game review</h3>
@@ -305,6 +339,21 @@
       <div class="dcard" id="dcard-leaks"><h3>Leaks</h3><div id="dleaks"></div></div>
       <div class="dcard" id="dcard-cost"><h3>Cost</h3><div id="dcost"></div></div>
     </div>
+  </div>
+</div>
+<div id="ladderoverlay">
+  <button class="tbadge modebtn" id="ladderback" onclick="hideLadderScreen()">← Back</button>
+  <div id="ladderinner">
+    <h2 style="text-align:center;margin:0 0 4px">Choose your opponent</h2>
+    <div id="ladderelo"></div>
+    <div id="laddercards"></div>
+    <div id="ladderoptions">
+      <label><input type="radio" name="ratedopt" value="casual" checked onchange="LADDER_RATED=false">
+        Casual — coach allowed, unlocks count</label>
+      <label><input type="radio" name="ratedopt" value="rated" onchange="LADDER_RATED=true">
+        Rated — no coach, counts for Elo + stars</label>
+    </div>
+    <button id="ladderstart" disabled onclick="startLadderGame()">Pick an opponent</button>
   </div>
 </div>
 <script>
@@ -367,6 +416,11 @@ let DRILL_PHASE = null;
 let COACH_ON = false;           // COACH_SPEC §2: remembered across new games
 let PENDING_COACH = null;       // {body, info} while an interjection card is up
 try { COACH_ON = localStorage.getItem("coach") === "1"; } catch (e) {}
+
+let LADDER_DATA = null;         // last /api/ladder response
+let LADDER_RUNG = null;         // selected rung number (pre-game screen)
+let LADDER_RATED = false;
+try { LADDER_RUNG = parseInt(localStorage.getItem("rung"), 10) || null; } catch (e) {}
 
 /* ---- accounts (HOSTING.md step 1) ---- */
 
@@ -584,7 +638,63 @@ function switchMode(m) {
   document.getElementById("coachbadge").style.display = m === "play" ? "" : "none";
   document.getElementById("loglines").innerHTML = "";
   hideCoachCard();
-  if (m === "play") loadGame(); else loadNext();
+  if (m === "play") showLadderScreen(); else loadNext();
+}
+
+/* ---- bot ladder (LADDER_SPEC) ---- */
+
+const RUNG_ICON = {1:"🌱",2:"🎯",3:"⚔️",4:"🛡️",5:"🏹",6:"👑",7:"🔮",8:"🤖"};
+
+async function showLadderScreen() {
+  document.getElementById("ladderoverlay").style.display = "block";
+  const r = await fetch("/api/ladder");
+  if (r.status === 401) { showAuthCard(); return; }
+  LADDER_DATA = await r.json();
+  if (LADDER_RUNG && !LADDER_DATA.rungs.find(x => x.number === LADDER_RUNG && x.unlocked)) {
+    LADDER_RUNG = null;   // stale/locked selection from a previous account
+  }
+  renderLadderCards();
+}
+
+function hideLadderScreen() {
+  document.getElementById("ladderoverlay").style.display = "none";
+  // Opened mid-game (via "Choose opponent") -> back to that game, not away
+  // from play mode entirely; opened with nothing in progress -> trainer.
+  if (!(APP_MODE === "play" && PZ && PZ.session)) switchMode("trainer");
+}
+
+function renderLadderCards() {
+  document.getElementById("ladderelo").innerHTML =
+    `Play rating: <b>${Math.round(LADDER_DATA.play_elo)}</b>`;
+  const box = document.getElementById("laddercards");
+  box.innerHTML = "";
+  for (const rung of LADDER_DATA.rungs) {
+    const card = document.createElement("div");
+    card.className = "rungcard" + (rung.unlocked ? "" : " locked") +
+      (rung.number === LADDER_RUNG ? " sel" : "");
+    const record = rung.unlocked
+      ? `${rung.w}-${rung.l}${rung.d ? `-${rung.d}` : ""} · ${"⭐".repeat(rung.stars) || "no stars yet"}`
+      : `beat ${LADDER_DATA.rungs.find(x => x.number === rung.number - 1)?.name ?? "?"} to unlock`;
+    card.innerHTML =
+      `<div class="rungicon">${RUNG_ICON[rung.number] || "🎮"}</div>` +
+      `<div class="rungmain"><div class="rungname">${rung.number}. ${rung.name}` +
+      (rung.slow ? " <span title=\"thinks slowly (~5s/move)\">🐢</span>" : "") + `</div>` +
+      `<div class="rungsub">${record}</div></div>` +
+      `<div class="rungelo"><b>${Math.round(rung.elo)}</b>${rung.measured ? "" : " (provisional)"}</div>`;
+    if (rung.unlocked) card.onclick = () => { LADDER_RUNG = rung.number; renderLadderCards(); };
+    box.appendChild(card);
+  }
+  const btn = document.getElementById("ladderstart");
+  const chosen = LADDER_DATA.rungs.find(r => r.number === LADDER_RUNG);
+  btn.disabled = !chosen;
+  btn.textContent = chosen ? `Play ${chosen.name}` : "Pick an opponent";
+}
+
+function startLadderGame() {
+  if (!LADDER_RUNG) return;
+  try { localStorage.setItem("rung", String(LADDER_RUNG)); } catch (e) {}
+  document.getElementById("ladderoverlay").style.display = "none";
+  loadGame(LADDER_RUNG, LADDER_RATED);
 }
 
 /* ---- coach mode (COACH_SPEC) ---- */
@@ -657,13 +767,19 @@ async function loadNext() {
 
 /* ---- play mode ---- */
 
-async function loadGame() {
+async function loadGame(rung, rated) {
+  rung = rung ?? LADDER_RUNG; rated = rated ?? LADDER_RATED;
+  LADDER_RUNG = rung; LADDER_RATED = rated;
   closeReview();
   hideCoachCard();
   renderCoachBadge();
   document.getElementById("prompttext").textContent = "Setting up the board…";
   document.getElementById("loglines").innerHTML = "";
-  const r = await fetch(`/api/play/new?coach=${COACH_ON ? 1 : 0}`);
+  document.getElementById("laddertoast").style.display = "none";
+  const qs = new URLSearchParams({
+    coach: COACH_ON ? "1" : "0", rung: String(rung), rated: rated ? "1" : "0",
+  });
+  const r = await fetch(`/api/play/new?${qs}`);
   const v = await r.json();
   if (v.error) { showFatal(`/api/play/new -> ${v.error}`); return; }
   applyPlayView(v);
@@ -750,7 +866,8 @@ function applyPlayNow(v) {
   discardPick = [];
   movesByCat = {};
   for (const m of v.moves) (movesByCat[m.category] ||= []).push(m);
-  document.getElementById("counter").textContent = "you vs the engine";
+  document.getElementById("counter").textContent =
+    `${RUNG_ICON[v.rung] || ""} ${v.rung_name}` + (v.rated ? " (rated)" : " (casual)");
   document.getElementById("result").style.display = "none";
   document.getElementById("picker").style.display = "none";
   document.getElementById("stagedbar").style.display = "flex";
@@ -760,6 +877,8 @@ function applyPlayNow(v) {
          v.winner === "bot" ? "🤖 The engine wins." : "Draw.")
       : v.prompt;
   document.getElementById("reviewbtn").style.display = v.game_over ? "" : "none";
+  document.getElementById("rematchbtn").style.display = v.game_over ? "" : "none";
+  if (v.game_over && v.ladder) renderLadderToast(v.ladder);
   renderSide(); renderActionBar(); renderBoard(); renderStaged();
   if (v.game_over) { locked = true; renderActionBar(); return; }
   if (v.discard) { buildDiscardPicker(); return; }
@@ -768,6 +887,26 @@ function applyPlayNow(v) {
   // "instant" one in play mode: those PLAY on activation (auto-ending the
   // turn without the user touching anything).
   if (cats.length === 1 && CATS[cats[0]].kind !== "instant") activateMode(cats[0]);
+}
+
+function renderLadderToast(ladder) {
+  const el = document.getElementById("laddertoast");
+  const bits = [];
+  if (ladder.rated) {
+    const before = Math.round(ladder.play_elo_before), after = Math.round(ladder.play_elo_after);
+    bits.push(`Play rating ${before} → ${after}`);
+    if (ladder.stars_after > ladder.stars_before) {
+      bits.push(`${"⭐".repeat(ladder.stars_after)} on this rung!`);
+    }
+  } else {
+    bits.push("Casual game — no rating change.");
+  }
+  if (ladder.unlocked_next) {
+    const next = LADDER_DATA?.rungs.find(r => r.number === ladder.unlocked_next);
+    bits.push(`🔓 Unlocked ${next ? next.name : "the next rung"}!`);
+  }
+  el.textContent = bits.join(" · ");
+  el.style.display = "block";
 }
 
 function appendEvents(events) {

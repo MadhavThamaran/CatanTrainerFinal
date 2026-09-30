@@ -37,6 +37,7 @@ class Ratings:
         self.history: list = d.get("history", [])
         self.srs: dict = d.get("srs", {})   # pid -> {box, due, lapses, added} (SRS_SPEC)
         self.skill: dict = d.get("skill", {})   # phase -> rating (DASHBOARD_SPEC §0)
+        self.ladder: dict = d.get("ladder", {})   # play_elo + per-rung records (LADDER_SPEC)
 
     # --- persistence ---
 
@@ -49,6 +50,7 @@ class Ratings:
                 "history": self.history[-2000:],
                 "srs": self.srs,
                 "skill": self.skill,
+                "ladder": self.ladder,
             },
         )
 

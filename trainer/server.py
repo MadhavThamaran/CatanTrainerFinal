@@ -118,12 +118,32 @@ def make_handler(
                         self._json({"error": "queue is empty"}, 404)
                         return
                     self._json(result)
+                elif path == "/api/ladder":
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    if play is None:
+                        self._json({"error": "play mode not available on this deployment"}, 404)
+                        return
+                    self._json(service.ladder_view(uid))
                 elif path == "/api/play/new":
                     if play is None:
                         self._json({"error": "play mode not available on this deployment"}, 404)
                         return
-                    coach = parse_qs(query).get("coach", ["0"])[0] in ("1", "true")
-                    self._json(play.new_game(coach=coach))
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    qs = parse_qs(query)
+                    coach = qs.get("coach", ["0"])[0] in ("1", "true")
+                    rated = qs.get("rated", ["0"])[0] in ("1", "true")
+                    rung_str = qs.get("rung", [None])[0]
+                    rung = int(rung_str) if rung_str is not None else None
+                    result = play.new_game(
+                        user_id=uid, rung=rung, rated=rated, coach=coach,
+                    )
+                    self._json(result, 400 if "error" in result else 200)
                 elif path == "/api/review/poll":
                     if review is None:
                         self._json({"error": "review not available on this deployment"}, 404)
@@ -231,16 +251,15 @@ def main() -> None:
                      help="JsonStore path (ignored if DATABASE_URL is set)")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8321)
-    ap.add_argument("--bot", default="checkpoints/gen7.pt",
-                    help="checkpoint for play-vs-bot mode")
-    ap.add_argument("--bot-sims", type=int, default=160)
+    ap.add_argument("--default-rung", type=int, default=6,
+                     help="ladder rung (1-8) a game starts on when the client omits ?rung=")
     ap.add_argument("--no-play", action="store_true",
                      help="disable play-vs-bot (no torch import) — for hosted deploys")
     ap.add_argument("--review-sims", type=int, default=512,
                      help="post-game review search depth (deeper than play)")
     ap.add_argument("--review-dets", type=int, default=6)
     ap.add_argument("--coach-sims", type=int, default=160,
-                     help="coach-mode search budget (default: same as the bot's own play)")
+                     help="coach-mode search budget (judges at a fixed reference net)")
     ap.add_argument("--coach-dets", type=int, default=4)
     args = ap.parse_args()
 
@@ -253,7 +272,7 @@ def main() -> None:
         from .review import ReviewService
 
         play = PlayService(
-            net_path=args.bot, sims=args.bot_sims,
+            ratings_for=service.ratings_for, default_rung=args.default_rung,
             coach_sims=args.coach_sims, coach_dets=args.coach_dets,
         )
         review = ReviewService(sims=args.review_sims, dets=args.review_dets)
@@ -270,7 +289,7 @@ def main() -> None:
         make_handler(service, play, review, session_secret, secure_cookies),
     )
     print(f"catan tactics trainer: {len(service.puzzles)} puzzles loaded")
-    print(f"play mode bot: {args.bot} (s={args.bot_sims})" if play else "play mode: disabled")
+    print(f"play mode: bot ladder (default rung {args.default_rung})" if play else "play mode: disabled")
     print(f"open http://{args.host}:{args.port}")
     server.serve_forever()
 

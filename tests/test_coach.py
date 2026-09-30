@@ -11,9 +11,10 @@ from trainer.play import PlayService
 
 
 def _svc():
-    # Heuristic engine at tiny budget: fast, deterministic-enough for tests
-    # that don't monkeypatch evaluate() outright.
-    return PlayService(net_path=None, sims=4, dets=1)
+    # Rung 1 (HeuristicAgent, no search): fast and deterministic for tests
+    # that don't monkeypatch evaluate() outright. The coach engine is
+    # unaffected by rung choice (COACH_SPEC: fixed reference net).
+    return PlayService(default_rung=1)
 
 
 def _force_evals(s, blunder_codec_id, regret=0.3):

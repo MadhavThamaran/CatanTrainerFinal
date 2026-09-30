@@ -16,6 +16,7 @@ from puzzles import load_puzzles, score_move
 from puzzles.explain import move_facts, render, render_miss
 
 from . import dashboard as dashboard_module
+from . import ladder
 from . import srs
 from .actions import describe_move
 from .elo import Ratings
@@ -61,6 +62,23 @@ class TrainerService:
         payload = dashboard_module.build(self.ratings_for(user_id))
         self._dashboard_cache[user_id] = (now, payload)
         return payload
+
+    def ladder_view(self, user_id: int) -> dict:
+        """LADDER_SPEC pre-game screen: the static rung table plus this
+        user's unlocks/W-L/stars/play-Elo."""
+        state = self.ratings_for(user_id).ladder
+        rungs = ladder.rung_table()
+        for r in rungs:
+            rec = state.get("rungs", {}).get(str(r["number"]), {})
+            r["unlocked"] = ladder.is_unlocked(state, r["number"])
+            r["w"] = rec.get("w", 0)
+            r["l"] = rec.get("l", 0)
+            r["d"] = rec.get("d", 0)
+            r["stars"] = rec.get("stars", 0)
+        return {
+            "rungs": rungs,
+            "play_elo": round(state.get("play_elo", ladder.PLAY_ELO_START), 1),
+        }
 
     def next_puzzle(self, user_id: int, phase: str | None = None) -> dict:
         ratings = self.ratings_for(user_id)
