@@ -397,6 +397,27 @@ changes worth considering before another same-recipe turn: much deeper
 self-play (sims 800+, ~2× turn cost), a larger combined turn, or shifting
 effort to the product side until there's a reason to want more Elo.
 
+**Gen-9 = the sims-800 turn — and the second consecutive non-promotion.**
+This machine's measured self-play throughput (~150–280 s/game even at
+sims 100–200, CPU-dispatch-bound for small net batches) made the
+original 5,000-game plan a ~2-week run, so the turn was scaled 10× to
+500 games while keeping `--sims 800` (the actual lever under test —
+more games at the old sims 400 would just repeat gen-7/8, not test
+anything new; see `docs/GEN9_RUNBOOK.md`). Trained on the rolling window
+(gen6+gen7+gen8+gen9, 1.62M samples); val value BCE stayed flat across
+all 10 epochs (no board-blind regression). Gates
+(`data/gen9_report.txt`): vs raw engine 67/100 (CI 57.3–75.4%) —
+*weaker* context than both gen7 (75) and gen8 (72); head-to-head vs
+incumbent gen7 **99/200 = 49.5% (CI 42.6–56.4%) — not promoted**,
+decisively below even the extend-the-gate threshold (106), unlike
+gen-8's narrower miss. **Champion remains `checkpoints/gen7.pt`.**
+Two straight non-promotions means the sims-dial lever on this net
+size/data volume is exhausted — per the runbook's own decision table,
+further strength needs a regime change (an engine port to make 10×
+self-play data cheap, true GPU batching, or KataGo-style target tricks),
+not another same-recipe turn. The gen9 data stays banked in the window
+regardless.
+
 **The large-run recipe.** Measured rate: ~18 min per 100 games on 8 cores,
 so 5,000 games ≈ 15 h — run it overnight in 500-game chunks (a crash then
 costs at most one chunk; failed individual games are skipped and logged, not

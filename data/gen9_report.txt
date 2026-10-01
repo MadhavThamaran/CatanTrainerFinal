@@ -1,0 +1,11 @@
+=== gen-9 gates (Wed Sep 30 18:06:20 CDT 2026) ===
+--- gate 1: gen9 (pure) vs raw Stage B engine, 100 games (context only) ---
+
+net-MCTS vs mcts (equal s=160,k=4): 67/100 = 67.0% (95% CI 57.3%-75.4%)
+  as seat 0: 36/50
+  as seat 1: 31/50
+--- gate 2: gen9 vs incumbent gen7, 200 games (decides) ---
+[200/200] A 99/200 (11914s)
+
+checkpoints/gen9.pt vs checkpoints/gen7.pt: 99/200 = 49.5% (95% CI 42.6%-56.4%)
+=== done (Wed Sep 30 22:39:57 CDT 2026) ===

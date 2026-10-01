@@ -75,12 +75,15 @@ don't re-design. Statuses as of 2026-08-14.
       the long pole). Better after EXPLAIN.
 
 ## Engine track (parallel, background compute)
-- [ ] **GEN9_RUNBOOK.md** — rate-probe first; sims-800 turn; promotion
-      by decision table. Runs unattended alongside any phase.
+- [x] **GEN9_RUNBOOK.md** — rate-probe + sims-800 turn (scaled to 500
+      games) + decision table. DONE 2026-09-30: vs gen7 99/200 = 49.5%
+      — NOT promoted (`data/gen9_report.txt`). Two straight
+      non-promotions — the sims-dial lever is exhausted; next real
+      strength gain needs RUST_PORT_SPEC or an equivalent regime change.
 - [ ] ROADMAP_V2 §B1 — difficulty recalibration (needs ~500 hosted
       attempts; small, unspec'd deliberately).
-- [ ] **RUST_PORT_SPEC.md** — engine hot-loop port, ~1-2 weeks; do when
-      self-play is the measured bottleneck again.
+- [ ] **RUST_PORT_SPEC.md** — engine hot-loop port, ~1-2 weeks. Now the
+      live lever per gen-9's result, whenever that's the priority.
 
 ## Standing references
 - CLAUDE.md — conventions + the rules that exist because they were

@@ -32,12 +32,13 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 ## Current state (2026-09-30)
 
 - **Champion: `checkpoints/gen7.pt`** (75/100 vs raw engine; gen-8 was
-  NOT promoted — 218/400, CI-LB < 50%). Gen-9 self-play (scaled to this
-  machine's measured throughput — see seed ledger below) finished
-  2026-09-30 (500/500 games, `data/gen9_0..4.npz`);
-  `scripts/gen9_after_scaled.sh` is running the train+gate pipeline
-  against `checkpoints/gen9.pt` in the background — see
-  `data/gen9_report.txt` once it lands for the promotion verdict.
+  NOT promoted — 218/400, CI-LB < 50%). Gen-9 (scaled 500-game run at
+  sims=800) finished its full train+gate pipeline 2026-09-30: vs raw
+  67/100, vs gen7 **99/200 = 49.5% — NOT promoted** (`data/gen9_report.txt`).
+  **Two consecutive non-promotions — the sims-dial lever is exhausted.**
+  Next real strength gains need a regime change (engine port, true GPU
+  batching, or KataGo-style target tricks), not another same-recipe turn;
+  see README Stage-5 / PLAN.md M5 for the full measured history.
 - **Puzzles: `data/puzzles_v5.jsonl`, 3,413 net-labeled** (trainer
   default). Labeling engine is gen-6 by policy (see ROADMAP B3).
 - Promotion standard: 200-game head-to-head, CI lower bound > 50%.
