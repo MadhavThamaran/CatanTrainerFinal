@@ -1,5 +1,6 @@
 """Play-vs-bot mode (trainer/play.py): session loop, discards, hiding."""
 import random
+from pathlib import Path
 
 from trainer.play import PlayService
 
@@ -40,6 +41,14 @@ def test_full_game_random_human_terminates_and_bot_usually_wins():
     final = _play_out(svc, view, rng)
     assert final["game_over"], "game did not finish"
     assert final["winner"] in ("you", "bot", "draw")
+
+    # conftest isolates records: the finished game lands in the per-test dir,
+    # never in the real data/games/ that the dashboard reads as the player's.
+    import trainer.play as tp
+
+    record = f"{view['session']}.json"
+    assert (tp._GAMES_DIR / record).exists()
+    assert not (Path("data/games") / record).exists()
 
 
 def test_view_never_leaks_bot_hand():

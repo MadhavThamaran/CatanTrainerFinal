@@ -10,7 +10,7 @@ live lever — gen-7 (sims 256→400) was the last firm promotion; gen-8
 
 ```sh
 cd catan-trainer
-uv run pytest -q                         # must be green (117 tests)
+uv run pytest -q                         # must be green
 ls checkpoints/gen7.pt data/gen6_0.npz data/gen7_0.npz data/gen8_0.npz
 pmset -g batt | head -1                  # macOS: MUST say AC Power
 ```

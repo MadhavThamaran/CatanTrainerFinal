@@ -2,18 +2,18 @@
 
 Point a coding session here. Each item links a full spec with decided
 trade-offs, data models, APIs, tests, and acceptance criteria — execute,
-don't re-design. Statuses as of 2026-08-14.
+don't re-design. Statuses as of 2026-10-01.
 
 ## Phase 0 — machine transfer (human, ~30 min)
-- [ ] HANDOFF.md §1b–§2: zip/transfer (or git push), clone-equivalent on
-      the new machine, `uv run pytest -q` green (117).
+- [x] HANDOFF.md §1b–§2: zip/transfer (or git push), clone-equivalent on
+      the new machine, `uv run pytest -q` green. DONE: the repo is on
+      GitHub (`origin`) and the suite passes in this working copy
+      (checked 2026-10-01).
 
 ## Phase 1 — public product (unlocks everything user-data-driven)
 - [x] **HOSTING.md** — accounts (scrypt + signed cookies), storage seam
       (JsonStore/PgStore), Render + Neon deploy of the puzzle trainer.
       DONE 2026-09-29: live at https://catantrainerfinal.onrender.com.
-      DASHBOARD_SPEC §0 per-skill-Elo addition still open (not done in
-      the same change — revisit when building the dashboard).
 - [x] **SRS_SPEC.md** — spaced repetition. DONE 2026-09-29: Leitner boxes
       (`trainer/srs.py`), `/api/srs/summary` + `/api/srs/next`, `srs:true`
       on `/api/submit` (unrated). Header chip `🔁 Review (N)`.
@@ -90,5 +90,5 @@ don't re-design. Statuses as of 2026-08-14.
   violated once. ROADMAP_V2.md — rationale + measured history behind
   every ranking above. README — full project narrative.
 
-Total: ~12–14 focused days to the complete product vision, engine track
-running in the background throughout.
+Remaining: CURRICULUM (~2.5 days) is the last feature spec; the Rust port
+(~1–2 weeks) is the engine track's live lever; B1 waits on hosted attempts.

@@ -90,7 +90,7 @@ state), which is what makes bit-exactness achievable — keep it so.
 
 1. **The pytest suite is the porting contract**: a conftest switch
    (`CATAN_ENGINE=rust`) routes `engine` imports to the Rust backend;
-   all 117 tests must pass UNMODIFIED. Any test edit to make the port
+   every test must pass UNMODIFIED. Any test edit to make the port
    pass is a contract violation.
 2. **Differential fuzz**: 10,000 seeded random games driven lockstep —
    after every single action, compare `legal_actions` (full ordered

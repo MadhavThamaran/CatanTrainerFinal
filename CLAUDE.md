@@ -109,8 +109,8 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   "Analyze" on puzzle results + review rows (a 4th APP_MODE reusing the
   board/marks/action-bar idioms), revealed-hands card, engine-lines
   card, chance picker with real odds (`DicePolicy.probabilities()`, new).
-- Play mode records every game to `data/games/` (replayable logs) — the
-  foundation review stands on.
+- Play mode records every game to `data/games/` (replayable logs;
+  gitignored, per-machine) — the foundation review stands on.
 - `docs/EXECUTION_INDEX.md` orders all forward work; each feature has a
   full spec in `docs/*_SPEC.md`. Measured history: README Stage-5
   section + `data/*_report.txt`.
@@ -136,6 +136,13 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   `_BlindValueFeatures` for the pattern), or accept regenerating data.
 - **Elo isolation** — lesson/SRS/lab/review attempts must never touch
   the rated puzzle-Elo pool. Guard with tests when adding modes.
+- **Tests must never write into the real `data/`** — `tests/conftest.py`
+  autouse-redirects every `data/games/` path (`trainer.play/review/
+  analysis._GAMES_DIR`, `dashboard.GAMES_DIR`) to a per-test tmp dir. Two
+  full-game tests once dropped a record there on every run, and the
+  dashboard reads that folder globally, so the strays counted as the
+  player's games. A new module that persists under `data/` must be added
+  to that fixture.
 - **Codec can't express discards** — any surface serving discard
   decisions needs a custom path (see `trainer/play.py`).
 - Engine changes must keep the (seed, action-log) determinism contract —
