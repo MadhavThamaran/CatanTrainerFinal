@@ -13,6 +13,10 @@ prefers a measured rating over the provisional guess once this exists.
 This is an ~8-10h run (8 rungs, several ~60-game pairs at up to sims=800) —
 run it on an idle machine, once, chunk-resumable via `--resume`.
 
+Pair i plays seeds `--seed-offset + 1000*i + game`, so the default offset
+consumes 91,000,000-91,011,059 (reserved in CLAUDE.md's seed ledger). Resume
+with the SAME offset or the replayed pair gets fresh seeds.
+
 Usage:
   uv run python scripts/ladder_calibrate.py --games 60 --resume
 """
@@ -108,7 +112,7 @@ def _check_monotonic(elo: dict[int, float]) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--games", type=int, default=60)
-    ap.add_argument("--seed-offset", type=int, default=500_000)
+    ap.add_argument("--seed-offset", type=int, default=91_000_000)
     ap.add_argument("--workers", type=int, default=max(2, mp.cpu_count() - 2))
     ap.add_argument(
         "--resume", action="store_true",

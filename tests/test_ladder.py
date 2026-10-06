@@ -39,6 +39,35 @@ def test_rung_table_reports_provisional_by_default():
     assert table[-1]["name"] == "The Engine"
 
 
+def test_a_measured_rating_replaces_the_provisional_guess(monkeypatch):
+    monkeypatch.setattr(ladder, "_CALIBRATED", {5: 1625.0})
+    assert ladder.rating_for(5) == 1625.0
+    assert ladder.is_measured(5)
+    assert ladder.rating_for(4) == ladder.get_rung(4).provisional_elo   # unmeasured
+    assert not ladder.is_measured(4)
+    rows = {row["number"]: row for row in ladder.rung_table()}
+    assert (rows[5]["elo"], rows[5]["measured"]) == (1625.0, True)
+    assert (rows[4]["elo"], rows[4]["measured"]) == (1400.0, False)
+
+
+def test_play_elo_is_scored_against_the_measured_rating(monkeypatch):
+    # A rated win from 1200 is worth K * (1 - E), E = 1/(1 + 10**(gap/400)).
+    # Rung 6 is declared 1700: gap 500, E = 0.0532 -> +22.7.
+    assert ladder.record_game({}, 6, rated=True, winner="you")["play_elo_after"] == 1222.7
+    # Measured at 1300 instead: gap 100, E = 0.3599 -> +15.4.
+    monkeypatch.setattr(ladder, "_CALIBRATED", {6: 1300.0})
+    assert ladder.record_game({}, 6, rated=True, winner="you")["play_elo_after"] == 1215.4
+
+
+def test_calibration_file_is_loaded_in_the_shape_the_script_writes(tmp_path, monkeypatch):
+    path = tmp_path / "ladder_calibration.json"
+    path.write_text(json.dumps({"elo": {"1": 812.5, "3": 1200.0, "8": 2031.4}}))
+    monkeypatch.setattr(ladder, "_CALIBRATION_PATH", path)
+    assert ladder._load_calibration() == {1: 812.5, 3: 1200.0, 8: 2031.4}
+    monkeypatch.setattr(ladder, "_CALIBRATION_PATH", tmp_path / "missing.json")
+    assert ladder._load_calibration() == {}
+
+
 # --- unlock / star / Elo math (hand-computed fixtures) ---
 
 

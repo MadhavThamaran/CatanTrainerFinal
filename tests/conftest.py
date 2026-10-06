@@ -23,3 +23,16 @@ def _isolate_game_records(tmp_path, monkeypatch):
     games = tmp_path / "games"
     for target in _GAME_RECORD_DIRS:
         monkeypatch.setattr(target, games)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_ladder_calibration(monkeypatch):
+    """Rung ratings in tests are the declared provisional ones.
+
+    `trainer.ladder` loads data/ladder_calibration.json once, at import. After
+    `scripts/ladder_calibrate.py` has measured the ladder that file exists on
+    this machine, and every test that reads a rung rating (or asserts the
+    table is still provisional) would quietly depend on it. Tests that want
+    measured ratings set `ladder._CALIBRATED` themselves.
+    """
+    monkeypatch.setattr("trainer.ladder._CALIBRATED", {})

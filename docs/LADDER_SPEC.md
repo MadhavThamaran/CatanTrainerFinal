@@ -87,7 +87,14 @@ games — run it on the big machine overnight, once. Also VALIDATES
 monotonicity: if a rung measures out of order (plausible for 4 vs 5),
 reorder the table before shipping.
 
-## 6. Tests (`tests/test_ladder.py`)
+**As built:** pair i plays seeds `--seed-offset + 1000·i + game` (default
+offset 91,000,000, so a run consumes 91,000,000–91,011,059 — reserved in
+CLAUDE.md's seed ledger); each finished pair is saved to
+`data/ladder_calibration_results.json`, so `--resume` (with the SAME
+offset) replays only what is missing. `trainer/ladder.py` reads the
+ratings file once at import: restart the server after a run.
+
+## 6. Tests (`tests/test_ladder.py`, `tests/test_ladder_calibrate.py`)
 
 - Config resolution: every rung builds an agent; rung 1 has no net.
 - Unlock/star/Elo math on scripted outcomes (hand-computed fixtures).
@@ -95,6 +102,13 @@ reorder the table before shipping.
 - Persistence round-trip; game records carry rung/rated.
 - A full tiny-budget game vs rung 1 terminates (reuses test_play
   scaffolding).
+- A measured rating replaces the provisional guess everywhere it is read
+  (`rating_for`, the rung table, play-Elo scoring); the suite pins
+  `ladder._CALIBRATED` to `{}` so a calibrated machine can't change it.
+- The calibration script, with a stand-in for the games: default run stays
+  inside the ledger range with no seed shared by two games, `--resume`
+  replays only missing pairs on their original seeds, the output loads as
+  the ladder's measured ratings, and the fit recovers known ratings.
 
 ## 7. Effort & sequencing
 

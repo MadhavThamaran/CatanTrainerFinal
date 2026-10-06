@@ -7,7 +7,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~1-4min, 229 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 236 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
@@ -129,11 +129,16 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   `scripts/gen9_run_scaled.sh`), gates 100000–289999 (gen-9 reserves
   270000/280000), mining 200000–213359, play sessions 300000–399999,
   lab drills 400000–90399999 (`trainer/lab.py` samples randomly across
-  this whole span — "endless fresh boards" per spec, not a one-shot run).
-  Update this line when you consume a range.
+  this whole span — "endless fresh boards" per spec, not a one-shot run),
+  ladder calibration 91000000–91011059 (reserved;
+  `scripts/ladder_calibrate.py`'s default offset, pair i plays
+  offset + 1000·i + game). Update this line when you consume a range.
 - **Long runs die to battery hibernation** on macOS laptops —
-  `caffeinate -is` only holds on AC. All pipeline scripts are
-  chunk-resumable: rerun after any interruption; completed chunks skip.
+  `caffeinate -is` only holds on AC. On Windows the power plan's AC
+  sleep timeout does the same (3 h here) and the lid-close action can
+  too: hold the system awake for anything longer. All pipeline scripts
+  are chunk-resumable: rerun after any interruption; completed chunks
+  skip.
 - **`puzzles.pipeline` writes output only at the END of labeling** —
   don't start a run you can't finish; hours of labeling are lost on a
   kill.
@@ -149,7 +154,11 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   full-game tests once dropped a record there on every run, and the
   dashboard reads that folder globally, so the strays counted as the
   player's games. A new module that persists under `data/` must be added
-  to that fixture.
+  to that fixture. The same file pins `ladder._CALIBRATED` to `{}`: it is
+  loaded from `data/ladder_calibration.json` at import, so once the
+  ladder is calibrated a bare test would see this machine's measured
+  ratings (and `test_rung_table_reports_provisional_by_default` would go
+  red).
 - **Codec can't express discards** — any surface serving discard
   decisions needs a custom path (see `trainer/play.py`).
 - Engine changes must keep the (seed, action-log) determinism contract —
@@ -175,5 +184,5 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Explanatory strings shown to users derive ONLY from computed facts —
   no vibes (see EXPLAIN_SPEC honesty rules; same contract in lab,
   dashboard, coach specs).
-- Tests are the porting/refactor contract: 229 passing, spec-mapped
+- Tests are the porting/refactor contract: 236 passing, spec-mapped
   files per feature (`tests/test_<feature>.py`).
