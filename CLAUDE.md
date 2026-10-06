@@ -7,7 +7,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~1-4min, 221 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 229 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
@@ -59,7 +59,8 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   aggregates per-skill Elo (`Ratings.skill`, new), play-mode game/review
   records into Form/Skills/Leaks/Cost cards. `/api/dashboard` (30s
   cache), `/api/next?phase=` drill filter. Coach-override and
-  placement-lab leak types are absent (nullable) until those specs ship.
+  placement-lab leak types are not wired yet (nullable) — both source
+  specs have shipped since, so that's a follow-up.
 - **Coach mode (COACH_SPEC.md) shipped**: `PlaySession.submit()` gates
   every human play-mode action through a coach `MCTSEngine` (same
   checkpoint as the bot, judged from the human's info set); a move over
@@ -68,6 +69,10 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   event tag; every non-flagged move gets the same verdict as a free
   passive badge. `coach_set` on `/api/play/act`, `?coach=` on
   `/api/play/new`. `🎓 Coach` badge + interjection card in the UI.
+  Rated games have no coach (`PlaySession` refuses it; the UI dims the
+  badge). Every bounce is logged in the game record's `coach_events`
+  (`at`/`regret`/`severity`/`hint`/`outcome`, schema in COACH_SPEC §3)
+  and coached moves keep their `verdict` on the log entry.
 - **Explanations (EXPLAIN_SPEC.md) shipped**: `puzzles/explain.py` —
   `move_facts(state, action, actor)` (exact, no-search position diff) and
   `render(facts_best, facts_alt, phase)` (template clauses that cite ONLY
@@ -82,8 +87,10 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   W/L/stars/unlocks, `record_game` pure function). **Play mode now
   requires login** (it didn't before this). `/api/play/new?rung=&rated=`,
   `/api/ladder` for the pre-game rung-picker screen; game records gain
-  `rung`/`rated`. Coach judges at a fixed reference net regardless of
-  rung (COACH_SPEC's own logic untouched). Ratings are PROVISIONAL
+  `rung`/`rated`/`user_id` (the dashboard shows only your games; older
+  untagged records stay visible to everyone). Coach judges at a fixed
+  reference net regardless of rung (COACH_SPEC's own logic untouched).
+  Ratings are PROVISIONAL
   (declared guesses) until `scripts/ladder_calibrate.py`'s ~8-10h
   measurement pass is actually run — written but not yet executed.
 - **Placement lab (PLACEMENT_LAB_SPEC.md) shipped**: `trainer/lab.py` —
@@ -168,5 +175,5 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Explanatory strings shown to users derive ONLY from computed facts —
   no vibes (see EXPLAIN_SPEC honesty rules; same contract in lab,
   dashboard, coach specs).
-- Tests are the porting/refactor contract: 221 passing, spec-mapped
+- Tests are the porting/refactor contract: 229 passing, spec-mapped
   files per feature (`tests/test_<feature>.py`).

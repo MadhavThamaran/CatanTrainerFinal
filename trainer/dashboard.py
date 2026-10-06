@@ -5,11 +5,11 @@ time, no new content. Every statement derives only from stored numbers
 with explicit thresholds and minimum-n gates (same honesty contract as
 EXPLAIN_SPEC/coach/lab): never invent a weakness.
 
-Play mode has no accounts yet (HOSTING.md's deferred "Play mode later"),
-so game/review records in `data/games/` aren't tied to a user_id — the
-Form and Cost cards below read them globally (whoever plays on this
-machine), while the puzzle-Elo sections (global rating, skills, skill-gap
-leaks) are properly per-user via the `Ratings` passed in.
+Game records in `data/games/` carry the player's `user_id`, so the Form and
+Cost cards read only the requesting user's games (records written before
+that field existed stay visible to everyone — they came from the one local
+player); the puzzle-Elo sections (global rating, skills, skill-gap leaks)
+are per-user via the `Ratings` passed in.
 """
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ def _stage_for_turn(turn: int) -> str:
     return "endgame"
 
 
-def _load_games() -> list[dict]:
+def _load_games(user_id: int | None = None) -> list[dict]:
     if not GAMES_DIR.exists():
         return []
     games = []
@@ -74,9 +74,13 @@ def _load_games() -> list[dict]:
         if p.name.endswith(".review.json"):
             continue
         try:
-            games.append(json.loads(p.read_text()))
+            g = json.loads(p.read_text())
         except (json.JSONDecodeError, OSError):
             continue
+        # Older records have no "user_id" key at all and stay visible.
+        if user_id is not None and g.get("user_id", user_id) != user_id:
+            continue
+        games.append(g)
     return games
 
 
@@ -280,8 +284,8 @@ def _cost(games: list[dict]) -> dict | None:
     }
 
 
-def build(ratings) -> dict:
-    games = _load_games()
+def build(ratings, user_id: int | None = None) -> dict:
+    games = _load_games(user_id)
     skills = _skills(ratings)
     return {
         "form": _form(ratings, games),

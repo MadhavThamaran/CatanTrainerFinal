@@ -127,12 +127,14 @@ class PlaySession:
         coach: bool = False,
         coach_sims: int = COACH_SIMS,
         coach_dets: int = COACH_DETS,
+        user_id: int | None = None,   # stamped on the game record (dashboard filters by it)
     ):
         self.sid = sid
         self.seed = seed
         self.rung = rung
         self.rated = rated
         self.ratings = ratings
+        self.user_id = user_id
         # Kept for REVIEW_SPEC (`record["bot"]`, reviewed at deeper search
         # over the SAME net the bot used — None for the no-net rungs).
         self.net_path = ladder.get_rung(rung).net_path
@@ -148,7 +150,9 @@ class PlaySession:
         # built (its cost is opt-in via evaluate() calls, gated by
         # coach_on) so a mid-game toggle-on has an up-to-date CardTracker
         # instead of a blind one.
-        self.coach_on = coach
+        # LADDER_SPEC §2: rated games are coach-free — a coach would hand out
+        # the very answers the rating is meant to measure.
+        self.coach_on = coach and not rated
         self.coach_severity = "normal"
         from net.evaluator import get_evaluator
 
@@ -160,6 +164,10 @@ class PlaySession:
         )
         self.coach_engine.begin_game(self.human)
         self._coach_cache: tuple[int, list] | None = None
+        # One entry per flagged move (COACH_SPEC §3), persisted with the game
+        # so the dashboard can read interjection / played-anyway / hint rates.
+        self.coach_events: list[dict] = []
+        self._open_interjection: dict | None = None   # bounce awaiting the human's next move
         self.events: list[dict] = []
         self.n_actions = 0
 
@@ -207,7 +215,10 @@ class PlaySession:
             if lose:
                 ev["you_lose"] = lose
         self.events.append(ev)
-        self.log.append({"actor": actor, "action": action_to_dict(action)})
+        entry = {"actor": actor, "action": action_to_dict(action)}
+        if coach_verdict is not None:
+            entry.update(coach_verdict)   # coached moves keep their verdict (COACH_SPEC §3)
+        self.log.append(entry)
         self.n_actions += 1
         if self.state.phase is Phase.GAME_OVER:
             self._persist()
@@ -237,7 +248,9 @@ class PlaySession:
             "bot": self.net_path,
             "rung": self.rung,
             "rated": self.rated,
+            "user_id": self.user_id,
             "log": self.log,
+            "coach_events": self.coach_events,
             "winner": self.state.winner,
             "final_vp": [self.state.total_vp(0), self.state.total_vp(1)],
             "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -278,6 +291,47 @@ class PlaySession:
             "severity": "blunder" if regret >= COACH_SEVERITY["blunders-only"] else "mistake",
             "hint_category": _category(best, self.state, self.human),
         }
+
+    def set_coach(self, on: bool) -> bool:
+        """Toggle the coach. False (and unchanged) if refused: rated games
+        never allow it (LADDER_SPEC §2)."""
+        if on and self.rated:
+            return False
+        self.coach_on = on
+        return True
+
+    def note_coach_hint(self) -> None:
+        """The human revealed the hint on the interjection now showing (the
+        reveal itself is client-side, COACH_SPEC §2). No-op if none is open."""
+        open_ = self._open_interjection
+        if open_ is not None and open_["at"] == len(self.log):
+            open_["hint"] = True
+
+    def _log_interjection(self, action, info: dict) -> None:
+        """Record a bounce. The same flagged move re-submitted after "Think
+        again" is still one event; a different move means they changed their
+        mind (and if that one is flagged too, it opens its own event). An
+        event whose `outcome` stays None was abandoned."""
+        at = len(self.log)   # log index the human's next applied action will take
+        key = action_to_dict(action)
+        open_ = self._open_interjection
+        if open_ is not None and open_["at"] == at:
+            if open_["action"] == key:
+                return
+            open_["outcome"] = "changed"
+        self._open_interjection = {
+            "at": at, "action": key, "regret": info["regret"],
+            "severity": info["severity"], "hint": False, "outcome": None,
+        }
+        self.coach_events.append(self._open_interjection)
+
+    def _close_interjection(self, action, confirm: bool) -> None:
+        """The human is about to apply `action`: settle the open bounce."""
+        open_ = self._open_interjection
+        if open_ is not None and open_["at"] == len(self.log):
+            played_anyway = confirm and action_to_dict(action) == open_["action"]
+            open_["outcome"] = "confirmed" if played_anyway else "changed"
+        self._open_interjection = None
 
     def advance(self) -> None:
         """Play until the human faces a real decision or the game ends."""
@@ -329,14 +383,16 @@ class PlaySession:
 
         `{"illegal": True}` if codec_id/discard didn't match a legal move;
         `{"coach": {...}}` if coach mode bounced it (state UNCHANGED —
-        COACH_SPEC §1's no-side-effect property); `{"applied": True}` once
-        applied (the passive verdict badge, §4, rides on the event log)."""
+        COACH_SPEC §1's no-side-effect property; the bounce is logged to
+        `coach_events`); `{"applied": True}` once applied (the passive
+        verdict badge, §4, rides on the event log)."""
         action = self._find_action(codec_id, discard)
         if action is None:
             return {"illegal": True}
         if self.coach_on and not confirm:
             interjection = self.coach_interjection(action)
             if interjection is not None:
+                self._log_interjection(action, interjection)
                 return {"coach": interjection}
         verdict = None
         if self.coach_on:
@@ -344,6 +400,7 @@ class PlaySession:
             verdict = {"verdict": VERDICT_FOR_POINTS[points]}
             if confirm:
                 verdict["coached"] = "confirmed"
+        self._close_interjection(action, confirm)
         self._apply(action, "you", coach_verdict=verdict)
         return {"applied": True}
 
@@ -445,6 +502,7 @@ class PlayService:
             s = PlaySession(
                 sid, seed, rung, rated, ratings=ratings,
                 coach=coach, coach_sims=self.coach_sims, coach_dets=self.coach_dets,
+                user_id=user_id,
             )
             self._sessions[sid] = s
             while len(self._sessions) > _MAX_SESSIONS:
@@ -459,6 +517,7 @@ class PlayService:
         discard: list[str] | None = None,
         confirm: bool = False,
         coach_set: bool | None = None,
+        coach_hint: bool = False,
     ) -> dict:
         with self._lock:
             s = self._sessions.get(sid)
@@ -468,8 +527,12 @@ class PlayService:
                 # Toggle only (COACH_SPEC §3): evaluations simply start/stop
                 # from here on — the CardTracker stays caught up either way
                 # since `_apply` observes it unconditionally.
-                s.coach_on = bool(coach_set)
+                if not s.set_coach(bool(coach_set)):
+                    return {"error": "the coach is disabled in rated games"}
                 return s.view()
+            if coach_hint:
+                s.note_coach_hint()
+                return {"ok": True}
             if s.state.phase is Phase.GAME_OVER:
                 return {"error": "game is over"}
             if s.state.player_to_act() != s.human:

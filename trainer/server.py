@@ -220,6 +220,7 @@ def make_handler(
                         discard=req.get("discard"),
                         confirm=bool(req.get("confirm")),
                         coach_set=req.get("coach_set"),
+                        coach_hint=bool(req.get("coach_hint")),
                     )
                     self._json(result)
                 elif self.path == "/api/review/start":

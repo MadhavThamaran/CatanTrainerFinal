@@ -51,6 +51,18 @@ def test_full_game_random_human_terminates_and_bot_usually_wins():
     assert not (Path("data/games") / record).exists()
 
 
+def test_game_record_is_tagged_with_the_players_user_id():
+    import json
+
+    import trainer.play as tp
+
+    svc = _svc()
+    view = svc.new_game(user_id=7, seed=301_008)
+    svc._sessions[view["session"]]._persist()
+    record = json.loads((tp._GAMES_DIR / f"{view['session']}.json").read_text())
+    assert record["user_id"] == 7
+
+
 def test_view_never_leaks_bot_hand():
     svc = _svc()
     rng = random.Random(1)

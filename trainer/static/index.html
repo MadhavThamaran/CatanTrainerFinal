@@ -18,6 +18,7 @@
             font-size: 13px; font-weight: 700; color: #35506b; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
   .modebtn { border: 2px solid transparent; cursor: pointer; font: inherit; }
   .modebtn.active { border-color: #2563eb; color: #2563eb; }
+  .modebtn:disabled { opacity: .55; cursor: not-allowed; }
   #gamelog { display: none; }
   #loglines { max-height: 230px; overflow-y: auto; font-size: 13px; }
   #loglines div { padding: 2px 0; border-bottom: 1px solid #efe7cf; }
@@ -510,7 +511,8 @@ try { COACH_ON = localStorage.getItem("coach") === "1"; } catch (e) {}
 
 let LADDER_DATA = null;         // last /api/ladder response
 let LADDER_RUNG = null;         // selected rung number (pre-game screen)
-let LADDER_RATED = false;
+let LADDER_RATED = false;       // pre-game radio: applies to the NEXT game
+let GAME_RATED = false;         // the game on screen: rated games have no coach (LADDER_SPEC §2)
 try { LADDER_RUNG = parseInt(localStorage.getItem("rung"), 10) || null; } catch (e) {}
 
 /* ---- accounts (HOSTING.md step 1) ---- */
@@ -796,11 +798,15 @@ function startLadderGame() {
 
 function renderCoachBadge() {
   const b = document.getElementById("coachbadge");
-  b.textContent = COACH_ON ? "🎓 Coach: on" : "🎓 Coach: off";
-  b.classList.toggle("active", COACH_ON);
+  const on = COACH_ON && !GAME_RATED;
+  b.textContent = on ? "🎓 Coach: on" : "🎓 Coach: off";
+  b.classList.toggle("active", on);
+  b.disabled = GAME_RATED;   // dimmed; the label keeps its width so the badge row doesn't wrap
+  b.title = GAME_RATED ? "The coach is disabled in rated games." : "";
 }
 
 async function toggleCoach() {
+  if (GAME_RATED) return;   // COACH_ON stays as the preference for casual games
   COACH_ON = !COACH_ON;
   try { localStorage.setItem("coach", COACH_ON ? "1" : "0"); } catch (e) {}
   renderCoachBadge();
@@ -865,6 +871,7 @@ async function loadNext() {
 async function loadGame(rung, rated) {
   rung = rung ?? LADDER_RUNG; rated = rated ?? LADDER_RATED;
   LADDER_RUNG = rung; LADDER_RATED = rated;
+  GAME_RATED = rated;
   closeReview();
   hideCoachCard();
   renderCoachBadge();
@@ -872,7 +879,7 @@ async function loadGame(rung, rated) {
   document.getElementById("loglines").innerHTML = "";
   document.getElementById("laddertoast").style.display = "none";
   const qs = new URLSearchParams({
-    coach: COACH_ON ? "1" : "0", rung: String(rung), rated: rated ? "1" : "0",
+    coach: COACH_ON && !rated ? "1" : "0", rung: String(rung), rated: rated ? "1" : "0",
   });
   const r = await fetch(`/api/play/new?${qs}`);
   const v = await r.json();
@@ -963,6 +970,8 @@ function applyPlayNow(v) {
   for (const m of v.moves) (movesByCat[m.category] ||= []).push(m);
   document.getElementById("counter").textContent =
     `${RUNG_ICON[v.rung] || ""} ${v.rung_name}` + (v.rated ? " (rated)" : " (casual)");
+  GAME_RATED = !!v.rated;   // the server is the authority on whether this game is coached
+  renderCoachBadge();
   document.getElementById("result").style.display = "none";
   document.getElementById("picker").style.display = "none";
   document.getElementById("stagedbar").style.display = "flex";
@@ -1571,7 +1580,7 @@ async function playAct(body) {
 
 function showCoachCard(body, info) {
   locked = false;
-  PENDING_COACH = { body, info };
+  PENDING_COACH = { body, info, hinted: false };
   document.getElementById("stagedbar").style.display = "none";
   document.getElementById("coachcard").style.display = "flex";
   document.getElementById("coachtext").textContent =
@@ -1598,6 +1607,14 @@ function coachHint() {
   const hint = document.getElementById("coachhint");
   hint.textContent = `Hint: the engine prefers a different ${PENDING_COACH.info.hint_category.replace(/_/g, " ")}.`;
   hint.style.display = "block";
+  if (!PENDING_COACH.hinted) {
+    PENDING_COACH.hinted = true;
+    // The reveal is local; tell the server so the dashboard can count hint
+    // use (COACH_SPEC §3). A failed report costs nothing but the stat.
+    fetch("/api/play/act", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: PZ.session, coach_hint: true }) }).catch(() => {});
+  }
 }
 
 async function coachPlayAnyway() {

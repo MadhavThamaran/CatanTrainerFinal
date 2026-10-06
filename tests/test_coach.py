@@ -32,8 +32,8 @@ def _force_evals(s, blunder_codec_id, regret=0.3):
     s.coach_engine.evaluate = lambda state, viewer=None: evals
 
 
-def _new(svc, seed, coach=True):
-    view = svc.new_game(seed=seed, coach=coach)
+def _new(svc, seed, coach=True, rated=False):
+    view = svc.new_game(seed=seed, coach=coach, rated=rated)
     return svc._sessions[view["session"]], view
 
 
@@ -145,3 +145,105 @@ def test_discard_interjection_round_trip():
     ev = s.events[-1]
     assert ev["coached"] == "confirmed"
     assert ev["verdict"] == "blunder"
+
+
+# --- rated games are coach-free (LADDER_SPEC §2) ---
+
+
+def test_rated_game_never_has_the_coach():
+    svc = _svc()
+    s, view = _new(svc, 301_108, coach=True, rated=True)
+    sid = view["session"]
+    assert s.rated and s.coach_on is False            # requested at creation: refused
+
+    assert "error" in svc.act(sid, coach_set=True)    # ...and again mid-game
+    assert s.coach_on is False
+    assert "error" not in svc.act(sid, coach_set=False)
+
+    # a move the coach would flag just applies: no bounce, no verdict badge
+    blunder_codec = view["moves"][0]["codec_id"]
+    _force_evals(s, blunder_codec, regret=0.3)
+    res = svc.act(sid, codec_id=blunder_codec)
+    assert "coach" not in res
+    assert all("verdict" not in ev for ev in res["events"])
+    assert s.coach_events == []
+
+
+# --- bounces are logged for the dashboard (COACH_SPEC §3) ---
+
+
+def test_bounce_is_logged_and_playing_it_anyway_settles_it_as_confirmed():
+    svc = _svc()
+    s, view = _new(svc, 301_110)
+    blunder_codec = view["moves"][0]["codec_id"]
+    _force_evals(s, blunder_codec, regret=0.3)
+
+    svc.act(view["session"], codec_id=blunder_codec)              # bounced
+    (ev,) = s.coach_events
+    assert ev["at"] == len(s.log)                                 # the pending decision
+    assert abs(ev["regret"] - 0.3) < 1e-6 and ev["severity"] == "blunder"
+    assert ev["hint"] is False and ev["outcome"] is None
+
+    svc.act(view["session"], codec_id=blunder_codec, confirm=True)
+    assert ev["outcome"] == "confirmed"
+    assert s.log[ev["at"]]["action"] == ev["action"]              # lands where it was logged
+    assert s.log[ev["at"]]["verdict"] == "blunder"
+    assert s.log[ev["at"]]["coached"] == "confirmed"
+
+
+def test_picking_a_different_move_after_a_bounce_settles_it_as_changed():
+    svc = _svc()
+    s, view = _new(svc, 301_111)
+    blunder_codec, other_codec = view["moves"][0]["codec_id"], view["moves"][1]["codec_id"]
+    _force_evals(s, blunder_codec, regret=0.3)
+
+    svc.act(view["session"], codec_id=blunder_codec)              # bounced
+    res = svc.act(view["session"], codec_id=other_codec)          # a different move clears the gate
+    assert "coach" not in res
+    (ev,) = s.coach_events
+    assert ev["outcome"] == "changed"
+
+
+def test_resubmitting_the_same_flagged_move_is_one_event():
+    svc = _svc()
+    s, view = _new(svc, 301_112)
+    blunder_codec = view["moves"][0]["codec_id"]
+    _force_evals(s, blunder_codec, regret=0.3)
+
+    svc.act(view["session"], codec_id=blunder_codec)
+    svc.act(view["session"], codec_id=blunder_codec)              # "Think again", same pick
+    assert len(s.coach_events) == 1
+
+
+def test_hint_use_is_logged_on_the_open_interjection():
+    svc = _svc()
+    s, view = _new(svc, 301_113)
+    sid = view["session"]
+    blunder_codec = view["moves"][0]["codec_id"]
+    _force_evals(s, blunder_codec, regret=0.3)
+
+    assert svc.act(sid, coach_hint=True) == {"ok": True}          # nothing open yet: harmless
+    assert s.coach_events == []
+
+    svc.act(sid, codec_id=blunder_codec)                          # bounced
+    assert svc.act(sid, coach_hint=True) == {"ok": True}
+    assert s.coach_events[0]["hint"] is True
+
+
+def test_game_record_carries_the_coach_events_and_verdicts():
+    import json
+
+    import trainer.play as tp
+
+    svc = _svc()
+    s, view = _new(svc, 301_114)
+    blunder_codec = view["moves"][0]["codec_id"]
+    _force_evals(s, blunder_codec, regret=0.3)
+    svc.act(view["session"], codec_id=blunder_codec)
+    svc.act(view["session"], codec_id=blunder_codec, confirm=True)
+
+    s._persist()
+    record = json.loads((tp._GAMES_DIR / f"{view['session']}.json").read_text())
+    (ev,) = record["coach_events"]
+    assert ev["outcome"] == "confirmed"
+    assert record["log"][ev["at"]]["verdict"] == "blunder"

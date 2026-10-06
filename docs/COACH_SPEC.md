@@ -84,6 +84,16 @@ gimmick, never in rated ladder games.)
 - Coach events logged to the session record (`log` entries gain
   `coached` fields) → the weakness dashboard later reads interjection
   rate, played-anyway rate, hint usage.
+- **As built:** the record carries `coach_events`, one per flagged move:
+  `{at, action, regret, severity, hint, outcome}`. `at` is the `log`
+  index the human's next applied move takes (so events join to review
+  rows' `log_index`); `outcome` is `"confirmed"` (played it anyway),
+  `"changed"` (picked something else) or `null` (abandoned); the same
+  flagged move re-submitted after "Think again" stays one event. Hint
+  use is reported by the client (`coach_hint` on `/api/play/act`; the
+  reveal itself is local). Coached human moves also keep `verdict` (+
+  `coached`) on their `log` entry, so coached decisions can be counted.
+  Rated games have no coach (LADDER_SPEC §2): `PlaySession` refuses it.
 
 ## 4. The passive badges (free value)
 

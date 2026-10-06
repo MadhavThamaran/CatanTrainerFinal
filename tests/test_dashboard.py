@@ -106,10 +106,10 @@ def test_back_compat_history_missing_fields_does_not_crash(tmp_path, monkeypatch
 # --- games/review aggregation (Form, Cost cards) ---
 
 
-def _write_game(dir_, sid, human=0, winner=0, ts="2026-01-01T00:00:00+00:00"):
+def _write_game(dir_, sid, human=0, winner=0, ts="2026-01-01T00:00:00+00:00", **extra):
     (dir_ / f"{sid}.json").write_text(json.dumps({
         "sid": sid, "seed": 1, "human": human, "bot": None, "log": [],
-        "winner": winner, "final_vp": [15, 10], "ts": ts,
+        "winner": winner, "final_vp": [15, 10], "ts": ts, **extra,
     }))
 
 
@@ -125,6 +125,18 @@ def _row(turn, verdict, points, label, regret):
         "regret": regret, "verdict": verdict, "win_prob": 0.6,
         "board": {}, "marks": [],
     }
+
+
+def test_form_counts_only_the_requesting_users_games(tmp_path, monkeypatch):
+    monkeypatch.setattr(dashboard, "GAMES_DIR", tmp_path)
+    _write_game(tmp_path, "mine", user_id=1)
+    _write_game(tmp_path, "theirs", user_id=2)
+    _write_game(tmp_path, "older")          # written before records carried a user_id
+    r = Ratings(JsonStore(tmp_path / "s.json"), user_id=1)
+
+    assert dashboard.build(r, user_id=1)["form"]["games"]["total"] == 2   # mine + older
+    assert dashboard.build(r, user_id=2)["form"]["games"]["total"] == 2   # theirs + older
+    assert dashboard.build(r)["form"]["games"]["total"] == 3              # no user: unfiltered
 
 
 def test_form_games_and_review_trend(tmp_path, monkeypatch):

@@ -64,7 +64,7 @@ class TrainerService:
         now = time.time()
         if cached is not None and now - cached[0] < _DASHBOARD_TTL:
             return cached[1]
-        payload = dashboard_module.build(self.ratings_for(user_id))
+        payload = dashboard_module.build(self.ratings_for(user_id), user_id)
         self._dashboard_cache[user_id] = (now, payload)
         return payload
 
