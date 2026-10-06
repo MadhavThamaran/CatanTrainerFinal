@@ -15,6 +15,7 @@ from net.codec import encode_action
 from puzzles import load_puzzles, score_move
 from puzzles.explain import move_facts, render, render_miss
 
+from . import curriculum
 from . import dashboard as dashboard_module
 from . import ladder
 from . import srs
@@ -35,7 +36,7 @@ _PROMPTS = {
 
 
 class TrainerService:
-    def __init__(self, puzzle_path: str, store, seed: int = 0):
+    def __init__(self, puzzle_path: str, store, seed: int = 0, lessons_dir: str | None = None):
         self.puzzles = load_puzzles(puzzle_path)
         if not self.puzzles:
             raise ValueError(f"no puzzles in {puzzle_path}")
@@ -45,6 +46,16 @@ class TrainerService:
         self._last_id: dict[int, str] = {}
         self._ratings_cache: dict[int, Ratings] = {}
         self._dashboard_cache: dict[int, tuple[float, dict]] = {}
+        self.lessons: list[curriculum.Lesson] = []
+        self._lessons_by_id: dict[str, curriculum.Lesson] = {}
+        if lessons_dir is not None:
+            self.load_lessons(lessons_dir)
+
+    def load_lessons(self, directory: str) -> None:
+        """CURRICULUM_SPEC §2: validated against THIS puzzle set; a broken
+        lesson raises `curriculum.LessonError` here, at startup."""
+        self.lessons = curriculum.load_lessons(directory, self.puzzles)
+        self._lessons_by_id = {lesson.id: lesson for lesson in self.lessons}
 
     def ratings_for(self, user_id: int) -> Ratings:
         r = self._ratings_cache.get(user_id)
@@ -93,19 +104,18 @@ class TrainerService:
         self._last_id[user_id] = puzzle.id
         return self.present(puzzle.id, user_id)
 
-    def present(self, puzzle_id: str, user_id: int) -> dict:
+    def present(self, puzzle_id: str, user_id: int, unrated: bool = False) -> dict:
+        """`unrated` (lesson drills) leaves the rating pool completely alone:
+        no entry is created for the puzzle (viewing otherwise does that) and
+        no ratings are put in the payload."""
         p = self._by_id[puzzle_id]
         state = GameState.from_dict(p.state)
         actor = p.actor
-        ratings = self.ratings_for(user_id)
-        entry = ratings.puzzle_entry(p.id, p.difficulty)
-        return {
+        payload = {
             "puzzle_id": p.id,
             "phase": p.phase,
             "difficulty": p.difficulty,
             "prompt": self._prompt(p, state),
-            "user_rating": round(ratings.user, 1),
-            "puzzle_rating": round(entry["rating"], 1),
             "layout": LAYOUT,
             "board": self._board_state(state, actor),
             "context": self._context(state, actor),
@@ -116,6 +126,12 @@ class TrainerService:
                 key=lambda d: d["codec_id"],
             ),
         }
+        if not unrated:
+            ratings = self.ratings_for(user_id)
+            entry = ratings.puzzle_entry(p.id, p.difficulty)
+            payload["user_rating"] = round(ratings.user, 1)
+            payload["puzzle_rating"] = round(entry["rating"], 1)
+        return payload
 
     def _prompt(self, p, state: GameState) -> str:
         if state.free_roads > 0:
@@ -305,6 +321,111 @@ class TrainerService:
 
     def srs_summary(self, user_id: int) -> dict:
         return srs.summary(self.ratings_for(user_id).srs)
+
+    # --- lessons (CURRICULUM_SPEC): unrated drills, per-user run/pass state ---
+
+    @staticmethod
+    def _seen_rated(ratings: Ratings) -> set[str]:
+        """Puzzles the user has had RATED (a mere view creates an entry with
+        attempts == 0 — that is not "seen" for drill freshness)."""
+        return {pid for pid, e in ratings.puzzles.items() if e.get("attempts", 0) > 0}
+
+    def _run_view(self, state: dict) -> dict | None:
+        n = len((state.get("run") or {}).get("answers", {}))
+        return {"attempted": n, "count": len(state["drill_ids"])} if n else None
+
+    def _lesson_summary(self, ratings: Ratings, lesson: curriculum.Lesson) -> dict:
+        st = ratings.lessons.get(lesson.id, {})
+        i = self.lessons.index(lesson)
+        return {
+            "id": lesson.id,
+            "title": lesson.title,
+            "order": lesson.order,
+            "phase": lesson.drills.phase,
+            "page_count": len(lesson.pages),
+            "status": curriculum.status_for(ratings.lessons, self.lessons, lesson),
+            "prev_title": self.lessons[i - 1].title if i else None,
+            "drills": lesson.drills.count,
+            "pass_avg": lesson.pass_avg,
+            "min_attempted": lesson.pass_min_attempted,
+            "runs": st.get("runs", 0),
+            "best_avg": st.get("best_avg"),
+            "last_avg": st.get("last_avg"),
+            "tested_out": bool(st.get("tested_out")),
+            "in_progress": self._run_view(st) if st.get("drill_ids") else None,
+            "link": lesson.link,
+        }
+
+    def lessons_view(self, user_id: int) -> dict:
+        ratings = self.ratings_for(user_id)
+        rows = [self._lesson_summary(ratings, lesson) for lesson in self.lessons]
+        return {
+            "lessons": rows,
+            "passed": sum(r["status"] == "passed" for r in rows),
+            "total": len(rows),
+        }
+
+    def lesson_view(self, user_id: int, lesson_id: str) -> dict | None:
+        lesson = self._lessons_by_id.get(lesson_id)
+        if lesson is None:
+            return None
+        view = self._lesson_summary(self.ratings_for(user_id), lesson)
+        view["pages"] = list(lesson.pages_html)        # rendered, escaped HTML
+        view["drill_spec"] = {
+            "phase": lesson.drills.phase,
+            "count": lesson.drills.count,
+            "difficulty": list(lesson.drills.difficulty),
+        }
+        return view
+
+    def next_lesson_drill(self, user_id: int, lesson_id: str) -> dict | None:
+        """The next unanswered drill of the user's current run (starting one,
+        or resuming a half-finished one). Locked lessons serve too — that is
+        the "let me test out" path (§3)."""
+        lesson = self._lessons_by_id.get(lesson_id)
+        if lesson is None:
+            return None
+        ratings = self.ratings_for(user_id)
+        state = curriculum.state_for(ratings.lessons, lesson.id)
+        curriculum.ensure_drills(state, lesson, self.puzzles, self._seen_rated(ratings), user_id)
+        pid = curriculum.next_drill_id(state)
+        ratings.save()
+        payload = self.present(pid, user_id, unrated=True)
+        payload["lesson"] = {
+            "id": lesson.id, "title": lesson.title, **curriculum.progress_view(state, lesson),
+        }
+        return payload
+
+    def submit_lesson(
+        self,
+        puzzle_id: str,
+        codec_id: int,
+        user_id: int,
+        lesson_id: str,
+        road_codec_id: int | None = None,
+    ) -> dict:
+        """A lesson drill answer: scored exactly like `submit` (for display and
+        for the pass bar), but recorded ONLY in the lesson's run — never in
+        `Ratings.record` (no Elo, no attempt history, no per-skill rating) and
+        never enqueued into SRS (CURRICULUM_SPEC §3, CLAUDE.md Elo isolation)."""
+        lesson = self._lessons_by_id.get(lesson_id)
+        if lesson is None:
+            return {"error": "unknown lesson"}
+        ratings = self.ratings_for(user_id)
+        state = ratings.lessons.get(lesson.id, {})       # .get: a bad submit creates no state
+        if puzzle_id not in (state.get("drill_ids") or []):
+            return {"error": "puzzle is not one of this lesson's drills"}
+        if not state.get("run"):
+            return {"error": "no drill run in progress (it already finished) — reopen the lesson"}
+        scored = self._score(self._by_id[puzzle_id], codec_id, road_codec_id)
+        if scored is None:
+            return {"illegal": True}
+        was_locked = curriculum.status_for(ratings.lessons, self.lessons, lesson) == "locked"
+        progress = curriculum.record_answer(state, lesson, puzzle_id, scored["rated_points"])
+        if progress["passed"] and was_locked:
+            state["tested_out"] = True
+        ratings.save()
+        return {**scored, "lesson_progress": progress}
 
 
 # --- shared presentation helpers (trainer + play mode) ---

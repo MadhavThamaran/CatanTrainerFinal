@@ -2,7 +2,7 @@
 
 Point a coding session here. Each item links a full spec with decided
 trade-offs, data models, APIs, tests, and acceptance criteria — execute,
-don't re-design. Statuses as of 2026-10-01.
+don't re-design. Statuses as of 2026-10-06.
 
 ## Phase 0 — machine transfer (human, ~30 min)
 - [x] HANDOFF.md §1b–§2: zip/transfer (or git push), clone-equivalent on
@@ -71,8 +71,14 @@ don't re-design. Statuses as of 2026-10-01.
       revealed-hands card, engine-lines card, line breadcrumbs, chance
       picker (roll/steal/draw, with real BalancedDice odds via the new
       `DicePolicy.probabilities()`).
-- [ ] **CURRICULUM_SPEC.md** — six lesson tracks. ~2.5 days (content is
-      the long pole). Better after EXPLAIN.
+- [x] **CURRICULUM_SPEC.md** — six lesson tracks. DONE 2026-10-06:
+      `trainer/curriculum.py` (frontmatter loader that fails loudly, drill
+      resolution, run/pass/unlock state in `Ratings.lessons`), `/api/lessons`,
+      `/api/lessons/<id>`, `/api/lessons/<id>/next`, `lesson:` on
+      `/api/submit` (unrated: no Elo, history, skill or SRS). Six drafted
+      lessons in `content/lessons/` (want a human tone pass). Client:
+      `📚 Learn` (track list, lesson pages, drills on the trainer surface with
+      a progress badge, pass/fail screen, test-out for locked tracks).
 
 ## Engine track (parallel, background compute)
 - [x] **GEN9_RUNBOOK.md** — rate-probe + sims-800 turn (scaled to 500
@@ -90,5 +96,5 @@ don't re-design. Statuses as of 2026-10-01.
   violated once. ROADMAP_V2.md — rationale + measured history behind
   every ranking above. README — full project narrative.
 
-Remaining: CURRICULUM (~2.5 days) is the last feature spec; the Rust port
-(~1–2 weeks) is the engine track's live lever; B1 waits on hosted attempts.
+Remaining: every feature spec has shipped. The Rust port (~1–2 weeks) is the
+engine track's live lever; B1 waits on hosted attempts.

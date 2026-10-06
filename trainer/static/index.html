@@ -245,6 +245,46 @@
   #laddertoast { display: none; background: #fff7ed; border: 2px solid #fb923c;
                  border-radius: 12px; padding: 10px 14px; margin: 8px 0; font-size: 13px;
                  color: #7c2d12; font-weight: 700; }
+  /* curriculum (CURRICULUM_SPEC) */
+  #lessonbadge { display: none; align-items: center; gap: 8px; white-space: nowrap; }
+  #lessonbadge .lbtrack { width: 56px; height: 8px; background: #d5dfe8; border-radius: 4px;
+                          overflow: hidden; display: inline-block; }
+  #lbfill { display: block; height: 100%; width: 0; background: #16a34a; transition: width .25s; }
+  #lessonleave { border: none; background: none; cursor: pointer; font: inherit; color: #8a7a58;
+                 padding: 0 0 0 2px; }
+  #learnoverlay { display: none; position: fixed; inset: 0; background: #cfe0ec;
+                  z-index: 40; overflow-y: auto; }
+  #learninner { max-width: 680px; margin: 0 auto; padding: 60px 20px 40px; }
+  #learnback { position: fixed; top: 12px; left: 16px; z-index: 41; }
+  .learnhead { text-align: center; margin: 0 0 4px; }
+  .learnsub { text-align: center; font-size: 14px; color: #5d4f33; margin-bottom: 14px; }
+  .lessoncard { display: flex; align-items: center; gap: 12px; background: #f7f1df;
+                border-radius: 14px; padding: 12px 16px; margin-bottom: 10px;
+                box-shadow: 0 2px 6px rgba(0,0,0,.15); cursor: pointer; border: 2px solid transparent; }
+  .lessoncard:hover:not(.locked) { border-color: #2563eb; }
+  .lessoncard.locked { opacity: .65; cursor: default; }
+  .lessoncard.passed { border-color: #86efac; }
+  .lessonicon { font-size: 26px; width: 38px; text-align: center; flex-shrink: 0; }
+  .lessonmain { flex: 1; min-width: 0; }
+  .lessonname { font-weight: 800; font-size: 15px; color: #2d2418; }
+  .lessonsub { font-size: 12px; color: #8a7a58; }
+  .lessonlink { font-size: 12px; font-weight: 800; color: #2563eb; cursor: pointer; white-space: nowrap; }
+  #learnlesson, #learnresult { background: #f7f1df; border-radius: 16px; padding: 22px 26px;
+                               box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+  .lessonpage { min-height: 250px; font-size: 15px; line-height: 1.55; color: #3d3220; }
+  .lessonpage h3 { margin: 0 0 10px; font-size: 20px; color: #2d2418; }
+  .lessonpage ul, .lessonpage ol { padding-left: 22px; }
+  .lessonpage code { background: #e9e2cd; border-radius: 4px; padding: 0 5px; }
+  .lessondots { text-align: center; margin: 14px 0 4px; font-size: 14px; letter-spacing: 8px; color: #c9bd9c; }
+  .lessondots .on { color: #2563eb; }
+  .lessonnav { display: flex; gap: 10px; margin-top: 10px; }
+  .lessonnav button { flex: 1; border: none; border-radius: 10px; padding: 11px; font-size: 14px;
+                      font-weight: 800; cursor: pointer; background: #2563eb; color: #fff; }
+  .lessonnav button.sec { background: #e5e7eb; color: #374151; }
+  .lessonnav button.go { background: #16a34a; }
+  .lessonnav button:disabled { background: #cbd5e1; color: #fff; cursor: default; }
+  .resultbig { font-size: 30px; font-weight: 900; text-align: center; margin: 4px 0; }
+  .resultsub { text-align: center; font-size: 14px; color: #5d4f33; margin-bottom: 12px; }
   /* placement lab (PLACEMENT_LAB_SPEC) */
   #labside { display: none; }
   #labpct { margin: 4px 0 8px; }
@@ -293,11 +333,13 @@
 <div id="app">
   <div id="boardside">
     <div id="topbadges">
-      <button class="tbadge modebtn active" id="mode-trainer" onclick="SRS_MODE=false; DRILL_PHASE=null; switchMode('trainer')">🧩 Trainer</button>
+      <button class="tbadge modebtn active" id="mode-trainer" onclick="SRS_MODE=false; DRILL_PHASE=null; trainerClicked()">🧩 Trainer</button>
       <button class="tbadge modebtn" id="mode-play" onclick="switchMode('play')">⚔️ Play the bot</button>
       <button class="tbadge modebtn" id="mode-lab" onclick="switchMode('lab')">🧪 Placement lab</button>
+      <button class="tbadge modebtn" id="mode-learn" onclick="showLearn()">📚 Learn</button>
       <span class="tbadge" id="counter">puzzle 0</span>
       <span class="tbadge" id="pinfo">–</span>
+      <span class="tbadge" id="lessonbadge"><span class="lbtrack"><span id="lbfill"></span></span><span id="lessonn"></span><button id="lessonleave" title="Leave the lesson" onclick="leaveLesson()">✕</button></span>
       <span class="tbadge" id="userbadge" style="display:none">–</span>
       <button class="tbadge modebtn" id="logoutbtn" style="display:none" onclick="logout()">Log out</button>
       <button class="tbadge modebtn" id="srschip" style="display:none" onclick="startSrsReview()">🔁 Review (0)</button>
@@ -440,6 +482,14 @@
     <button id="ladderstart" disabled onclick="startLadderGame()">Pick an opponent</button>
   </div>
 </div>
+<div id="learnoverlay">
+  <button class="tbadge modebtn" id="learnback" onclick="hideLearn()">← Back</button>
+  <div id="learninner">
+    <div id="learnlist"></div>
+    <div id="learnlesson" style="display:none"></div>
+    <div id="learnresult" style="display:none"></div>
+  </div>
+</div>
 <div id="chancepicker">
   <div id="chancepickercard">
     <h3 id="chancetitle">Choose the outcome</h3>
@@ -505,6 +555,11 @@ let discardPick = [];           // play mode: resources chosen for a 7-discard
 let AUTH_NAME = null, authMode = "login";
 let SRS_MODE = false;
 let DRILL_PHASE = null;
+let LESSONS = null;             // last /api/lessons response (CURRICULUM_SPEC)
+let LESSON = null;              // lesson whose drills are on screen: {id, title, attempted, count, answered}
+let LESSON_VIEW = null;         // the explainer being read (pages as rendered HTML)
+let LESSON_PAGE = 0;
+let LESSON_RESULT = null;       // lesson_progress of a finished run, until its result screen is shown
 let COACH_ON = false;           // COACH_SPEC §2: remembered across new games
 let PENDING_COACH = null;       // {body, info} while an interjection card is up
 try { COACH_ON = localStorage.getItem("coach") === "1"; } catch (e) {}
@@ -548,10 +603,174 @@ async function refreshSrsChip() {
 
 function startSrsReview() {
   SRS_MODE = true;
+  LESSON = null; LESSON_RESULT = null; renderLessonBar();
   // switchMode() calls loadNext() itself when leaving play mode — avoid a
   // double fetch by only calling it directly when already in trainer mode.
   if (APP_MODE !== "trainer") switchMode("trainer");
   else loadNext();
+}
+
+/* ---- curriculum: ordered lessons with unrated drills (CURRICULUM_SPEC) ---- */
+
+const escHtml = s => String(s).replace(/[&<>"']/g,
+  c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const LESSON_ICON = { passed: "✅", open: "📖", locked: "🔒" };
+
+function showLearnView(which) {
+  for (const v of ["list", "lesson", "result"])
+    document.getElementById("learn" + v).style.display = v === which ? "" : "none";
+}
+
+async function refreshLessonsData() {
+  let r, v;
+  try { r = await fetch("/api/lessons"); v = await r.json(); }
+  catch (e) { showFatal(`/api/lessons -> ${e}`); return false; }
+  if (r.status === 401) { hideLearn(); showAuthCard(); return false; }
+  if (!r.ok) { showFatal(`/api/lessons -> ${v.error || r.status}`); return false; }
+  LESSONS = v;
+  return true;
+}
+
+async function showLearn() {
+  document.getElementById("learnoverlay").style.display = "block";
+  await showLearnList();
+}
+
+function hideLearn() {
+  document.getElementById("learnoverlay").style.display = "none";
+}
+
+async function showLearnList() {
+  showLearnView("list");
+  if (await refreshLessonsData()) renderLearnList();
+}
+
+function lessonSubline(l) {
+  const part = l.in_progress ? `${l.in_progress.attempted}/${l.in_progress.count} answered` : "";
+  if (l.status === "locked")
+    return `Pass “${escHtml(l.prev_title)}” to unlock` + (part ? ` · test-out in progress — ${part}` : "");
+  if (l.status === "passed") {
+    const how = l.tested_out ? "tested out" : "passed";
+    return `${how} · best ${l.best_avg} · ${l.runs} run${l.runs === 1 ? "" : "s"}` +
+      (part ? ` · replay in progress — ${part}` : "");
+  }
+  return l.in_progress
+    ? `in progress — ${l.in_progress.attempted}/${l.in_progress.count} drills answered`
+    : `${l.page_count} pages · ${l.drills} drills · pass at ${l.pass_avg}`;
+}
+
+function renderLearnList() {
+  const el = document.getElementById("learnlist");
+  let html = `<h2 class="learnhead">📚 Learn the game</h2>` +
+    `<div class="learnsub">${LESSONS.passed} of ${LESSONS.total} tracks passed · drills here are unrated — your puzzle rating is untouched</div>`;
+  for (const l of LESSONS.lessons) {
+    const locked = l.status === "locked";
+    const link = locked
+      ? `<span class="lessonlink" onclick="event.stopPropagation(); startLessonDrills('${l.id}')">${l.in_progress ? "Resume test-out" : "Let me test out"} →</span>`
+      : l.status === "passed"
+      ? `<span class="lessonlink" onclick="event.stopPropagation(); startLessonDrills('${l.id}')">Replay drills →</span>`
+      : "";
+    html += `<div class="lessoncard ${l.status}" data-lesson="${l.id}"` +
+      (locked ? "" : ` onclick="openLesson('${l.id}')"`) + `>` +
+      `<div class="lessonicon">${LESSON_ICON[l.status]}</div>` +
+      `<div class="lessonmain"><div class="lessonname">${l.order}. ${escHtml(l.title)}</div>` +
+      `<div class="lessonsub">${lessonSubline(l)}</div></div>${link}</div>`;
+  }
+  el.innerHTML = html;
+}
+
+async function openLesson(id) {
+  let r, v;
+  try { r = await fetch(`/api/lessons/${encodeURIComponent(id)}`); v = await r.json(); }
+  catch (e) { showFatal(`/api/lessons/${id} -> ${e}`); return; }
+  if (r.status === 401) { hideLearn(); showAuthCard(); return; }
+  if (!r.ok) { showFatal(`/api/lessons/${id} -> ${v.error || r.status}`); return; }
+  LESSON_VIEW = v; LESSON_PAGE = 0;
+  showLearnView("lesson");
+  renderLessonPage();
+}
+
+function lessonPage(delta) {
+  LESSON_PAGE = Math.max(0, Math.min(LESSON_VIEW.pages.length - 1, LESSON_PAGE + delta));
+  renderLessonPage();
+}
+
+function renderLessonPage() {
+  const v = LESSON_VIEW, n = v.pages.length, last = LESSON_PAGE === n - 1;
+  const dots = v.pages.map((_, i) => `<span class="${i === LESSON_PAGE ? "on" : ""}">●</span>`).join("");
+  const resume = v.in_progress ? ` (${v.in_progress.attempted}/${v.in_progress.count} done)` : "";
+  const startLabel = (v.in_progress ? "Resume drills" : "Start drills") + (v.in_progress ? resume : ` (${v.drills})`);
+  const lab = last && v.link === "lab" && LESSONS && LESSONS.lab_available
+    ? `<div class="lessonnav"><button class="sec" onclick="hideLearn(); switchMode('lab')">🧪 Try it in the Placement lab</button></div>`
+    : "";
+  document.getElementById("learnlesson").innerHTML =
+    `<h2 style="margin:0 0 10px">${v.order}. ${escHtml(v.title)}</h2>` +
+    `<div class="lessonpage">${v.pages[LESSON_PAGE]}</div>` +
+    `<div class="lessondots">${dots}</div>` +
+    `<div class="lessonnav">` +
+    `<button class="sec" ${LESSON_PAGE === 0 ? "disabled" : ""} onclick="lessonPage(-1)">← Back</button>` +
+    (last ? `<button class="go" id="lessonstart" onclick="startLessonDrills('${v.id}')">${startLabel}</button>`
+          : `<button id="lessonnext" onclick="lessonPage(1)">Next →</button>`) +
+    `</div>${lab}` +
+    `<div style="text-align:center;margin-top:12px"><a class="lessonlink" onclick="showLearnList()">← All tracks</a></div>`;
+}
+
+function startLessonDrills(id) {
+  const meta = (LESSONS && LESSONS.lessons.find(l => l.id === id)) || LESSON_VIEW;
+  LESSON = { id, title: meta.title, count: meta.drills,
+             attempted: meta.in_progress ? meta.in_progress.attempted : 0, answered: false };
+  LESSON_RESULT = null;
+  SRS_MODE = false; DRILL_PHASE = null;
+  hideLearn();
+  // switchMode() loads the first drill itself when leaving another mode.
+  if (APP_MODE !== "trainer") switchMode("trainer");
+  else loadNext();
+}
+
+function renderLessonBar() {
+  const on = !!LESSON && APP_MODE === "trainer";
+  document.getElementById("lessonbadge").style.display = on ? "inline-flex" : "none";
+  document.getElementById("counter").style.display = on ? "none" : "";
+  if (!on) return;
+  document.getElementById("lessonbadge").title = LESSON.title;
+  document.getElementById("lbfill").style.width = `${Math.round(100 * LESSON.attempted / LESSON.count)}%`;
+  document.getElementById("lessonn").textContent = LESSON.answered
+    ? `${LESSON.attempted}/${LESSON.count} done`
+    : `drill ${LESSON.attempted + 1}/${LESSON.count}`;
+}
+
+function leaveLesson() {
+  if (!LESSON) return;
+  LESSON = null; LESSON_RESULT = null;
+  renderLessonBar();
+  if (APP_MODE === "trainer") loadNext();     // never leave a lesson puzzle on screen un-flagged
+}
+
+function trainerClicked() {
+  if (LESSON) leaveLesson();
+  else switchMode("trainer");
+}
+
+async function showLessonResult(lp) {
+  document.getElementById("learnoverlay").style.display = "block";
+  showLearnView("result");
+  await refreshLessonsData();
+  const id = LESSON.id;
+  const idx = LESSONS ? LESSONS.lessons.findIndex(l => l.id === id) : -1;
+  const next = idx >= 0 ? LESSONS.lessons[idx + 1] : null;
+  const buttons = lp.passed
+    ? `<button class="sec" onclick="LESSON_RESULT = null; startLessonDrills('${id}')">↻ Replay drills</button>` +
+      (next ? `<button class="go" id="resultnext" onclick="LESSON = null; LESSON_RESULT = null; renderLessonBar(); openLesson('${next.id}')">Next track →</button>` : "")
+    : `<button class="sec" onclick="openLesson('${id}')">📖 Review the lesson</button>` +
+      `<button class="go" id="resultretry" onclick="LESSON_RESULT = null; startLessonDrills('${id}')">↻ Retry the same drills</button>`;
+  document.getElementById("learnresult").innerHTML =
+    `<div class="resultbig">${lp.passed ? "✅ Passed" : "📘 Not yet"}</div>` +
+    `<div class="resultsub">average <b>${lp.avg.toFixed(1)}</b> over ${lp.attempted} drills · the bar is <b>${lp.pass_avg}</b></div>` +
+    `<p style="text-align:center;font-size:14px;color:#5d4f33">${lp.passed
+      ? "Track complete. These drills never touched your puzzle rating."
+      : "Same drills again — learning the answers is the point. Reread the lesson if it helps."}</p>` +
+    `<div class="lessonnav">${buttons}</div>` +
+    `<div style="text-align:center;margin-top:12px"><a class="lessonlink" onclick="LESSON = null; LESSON_RESULT = null; renderLessonBar(); showLearnList()">← All tracks</a></div>`;
 }
 
 /* ---- weakness dashboard (DASHBOARD_SPEC) ---- */
@@ -660,6 +879,7 @@ function startPhaseDrill(phase) {
   hideDashboard();
   DRILL_PHASE = phase;
   SRS_MODE = false;
+  LESSON = null; LESSON_RESULT = null; renderLessonBar();
   if (APP_MODE !== "trainer") switchMode("trainer");
   else loadNext();
 }
@@ -716,12 +936,13 @@ async function submitAuth() {
 async function logout() {
   await fetch("/api/logout", { method: "POST" });
   AUTH_NAME = null; PZ = null;
+  LESSON = null; LESSON_RESULT = null; LESSONS = null; renderLessonBar();
   showAuthCard();
 }
 
 function switchMode(m) {
   if (m === APP_MODE) return;
-  if (m === "play" || m === "lab") { SRS_MODE = false; DRILL_PHASE = null; }
+  if (m === "play" || m === "lab") { SRS_MODE = false; DRILL_PHASE = null; LESSON = null; LESSON_RESULT = null; }
   closeReview();
   APP_MODE = m;
   document.getElementById("mode-trainer").classList.toggle("active", m === "trainer");
@@ -730,6 +951,7 @@ function switchMode(m) {
   document.getElementById("gamelog").style.display = m === "play" ? "block" : "none";
   document.getElementById("labside").style.display = m === "lab" ? "block" : "none";
   document.getElementById("pinfo").style.display = (m === "play" || m === "lab") ? "none" : "";
+  renderLessonBar();
   document.getElementById("coachbadge").style.display = m === "play" ? "" : "none";
   document.getElementById("loglines").innerHTML = "";
   hideCoachCard();
@@ -827,7 +1049,11 @@ const scalePts = (ids, V, cx, cy, k) =>
 const emojify = s => s.replace(/\b(wood|brick|sheep|wheat|ore)\b/g, m => `${RESICON[m]} ${m}`);
 
 async function loadNext() {
-  const endpoint = SRS_MODE ? "/api/srs/next"
+  // A finished run's result screen comes before anything else (also when
+  // analysis, or a mode switch, brings us back here after the last drill).
+  if (LESSON && LESSON_RESULT) { showLessonResult(LESSON_RESULT); return; }
+  const endpoint = LESSON ? `/api/lessons/${encodeURIComponent(LESSON.id)}/next`
+    : SRS_MODE ? "/api/srs/next"
     : DRILL_PHASE ? `/api/next?phase=${encodeURIComponent(DRILL_PHASE)}` : "/api/next";
   let r;
   for (let attempt = 0; attempt < 3; attempt++) {   // survive transient hiccups
@@ -848,15 +1074,22 @@ async function loadNext() {
   count++; locked = false; mode = null; staged = null; stagedRoad = null;
   movesByCat = {};
   for (const m of PZ.moves) (movesByCat[m.category] ||= []).push(m);
+  if (LESSON && PZ.lesson) {
+    LESSON.attempted = PZ.lesson.attempted; LESSON.count = PZ.lesson.count; LESSON.answered = false;
+  }
   document.getElementById("counter").textContent =
     SRS_MODE ? `review ${PZ.srs_queue} left` : "puzzle " + count;
-  document.getElementById("pinfo").textContent = SRS_MODE
+  document.getElementById("pinfo").textContent = LESSON
+    ? `📚 ${LESSON.title}`
+    : SRS_MODE
     ? "🔁 seen this before? good — prove it."
     : DRILL_PHASE
     ? `🎯 drilling ${DRILL_PHASE} · puzzle rating ${PZ.puzzle_rating.toFixed(0)}`
     : `${PZ.difficulty} ${PZ.phase} · puzzle rating ${PZ.puzzle_rating.toFixed(0)}`;
   document.getElementById("prompttext").textContent = PZ.prompt;
   document.getElementById("result").style.display = "none";
+  document.getElementById("next").textContent = LESSON ? "Next drill →" : "Next puzzle →";
+  renderLessonBar();
   document.getElementById("picker").style.display = "none";
   // showResult() hides the staged bar; every new puzzle must bring it back.
   document.getElementById("stagedbar").style.display = "flex";
@@ -1176,6 +1409,7 @@ async function openAnalysis(source, id, index) {
   hideCoachCard();
   ANALYSIS_RETURN_MODE = APP_MODE === "analysis" ? ANALYSIS_RETURN_MODE : APP_MODE;
   APP_MODE = "analysis";
+  renderLessonBar();      // the lesson badge belongs to the trainer surface only
   document.getElementById("mode-trainer").classList.remove("active");
   document.getElementById("mode-play").classList.remove("active");
   document.getElementById("mode-lab").classList.remove("active");
@@ -1659,7 +1893,8 @@ function renderSide() {
   document.getElementById("merow").innerHTML =
     `<div class="pav" style="background:${YOU}">👤</div>
      <div><div class="pname">You</div><div class="psub">${
-       PZ.user_rating !== undefined ? "rating " + PZ.user_rating.toFixed(0) : "vs gen-7 engine"
+       PZ.lesson ? "lesson drill · unrated"
+         : PZ.user_rating !== undefined ? "rating " + PZ.user_rating.toFixed(0) : "vs gen-7 engine"
      }</div></div>
      <div class="pstats">
        <div class="pstat"><b>${ctx.my_vp}</b>VP</div>
@@ -1869,7 +2104,7 @@ async function submitStaged() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ puzzle_id: PZ.puzzle_id, codec_id: staged.codec_id,
                            road_codec_id: stagedRoad ? stagedRoad.codec_id : null,
-                           srs: SRS_MODE }) });
+                           srs: SRS_MODE && !LESSON, lesson: LESSON ? LESSON.id : undefined }) });
   if (r.status === 401) { locked = false; showAuthCard(); return; }
   const res = await r.json();
   if (res.error) { showFatal(`/api/submit -> ${res.error}`); return; }
@@ -1889,7 +2124,14 @@ function showResult(res) {
   pts.textContent = (shown > 0 ? "+" : "") + shown + " points";
   pts.style.color = shown >= 75 ? "#15803d" : shown >= 10 ? "#b45309" : "#b91c1c";
   let statusLine;
-  if (res.srs_result) {
+  if (res.lesson_progress) {
+    const lp = res.lesson_progress;
+    LESSON.attempted = lp.attempted; LESSON.count = lp.count; LESSON.answered = true;
+    LESSON_RESULT = lp.complete ? lp : null;       // loadNext() shows the result screen next
+    document.getElementById("next").textContent = lp.complete ? "See your result →" : "Next drill →";
+    statusLine = `  ·  📚 drill ${lp.attempted}/${lp.count} — unrated, your puzzle rating is untouched`;
+    renderLessonBar();
+  } else if (res.srs_result) {
     const s = res.srs_result;
     statusLine = s.graduated
       ? "  ·  🎓 graduated — mastered, out of the review queue"

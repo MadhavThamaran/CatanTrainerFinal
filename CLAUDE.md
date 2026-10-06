@@ -7,7 +7,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~1-4min, 236 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 278 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
@@ -116,6 +116,19 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   "Analyze" on puzzle results + review rows (a 4th APP_MODE reusing the
   board/marks/action-bar idioms), revealed-hands card, engine-lines
   card, chance picker with real odds (`DicePolicy.probabilities()`, new).
+- **Curriculum (CURRICULUM_SPEC.md) shipped**: `trainer/curriculum.py` loads
+  `content/lessons/<nn>-<slug>.md` (frontmatter + `---`-split pages; validated
+  against the live puzzle set at startup, `--lessons DIR`, a broken lesson
+  raises `LessonError`). Six tracks, each an explainer + an 8-puzzle drill set
+  (pinned first, then phase/difficulty band, not-yet-rated first, stored per
+  user so retries repeat) + a pass bar (avg >= 75). Drills are UNRATED by
+  construction: `TrainerService.submit_lesson` never calls `Ratings.record` or
+  enqueues SRS, and `present(unrated=True)` creates no rating entry; state
+  lives in `Ratings.lessons`. `/api/lessons`, `/api/lessons/<id>`,
+  `/api/lessons/<id>/next`, `lesson:` on `/api/submit`. Client: `📚 Learn`.
+  Lesson text must describe THIS variant (discard above 9, friendly robber, no
+  player trades, 15 VP): `tests/test_curriculum.py` has a tripwire for
+  base-Catan lore. The drafts want a human tone pass.
 - Play mode records every game to `data/games/` (replayable logs;
   gitignored, per-machine) — the foundation review stands on.
 - `docs/EXECUTION_INDEX.md` orders all forward work; each feature has a
@@ -184,5 +197,5 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Explanatory strings shown to users derive ONLY from computed facts —
   no vibes (see EXPLAIN_SPEC honesty rules; same contract in lab,
   dashboard, coach specs).
-- Tests are the porting/refactor contract: 236 passing, spec-mapped
+- Tests are the porting/refactor contract: 278 passing, spec-mapped
   files per feature (`tests/test_<feature>.py`).

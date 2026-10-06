@@ -121,6 +121,25 @@ def make_handler(
                         self._json({"error": "queue is empty"}, 404)
                         return
                     self._json(result)
+                elif path == "/api/lessons" or path.startswith("/api/lessons/"):
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    rest = path[len("/api/lessons"):].strip("/")
+                    if not rest:
+                        result = service.lessons_view(uid)
+                        result["lab_available"] = lab is not None
+                    elif rest.endswith("/next"):
+                        result = service.next_lesson_drill(uid, rest[: -len("/next")])
+                    elif "/" not in rest:
+                        result = service.lesson_view(uid, rest)
+                    else:
+                        result = None
+                    if result is None:
+                        self._json({"error": "unknown lesson"}, 404)
+                        return
+                    self._json(result)
                 elif path == "/api/ladder":
                     uid = _user_id(self)
                     if uid is None:
@@ -207,8 +226,16 @@ def make_handler(
                         return
                     road = req.get("road_codec_id")
                     road = int(road) if road is not None else None
-                    submit_fn = service.submit_srs if req.get("srs") else service.submit
-                    result = submit_fn(req["puzzle_id"], int(req["codec_id"]), uid, road)
+                    lesson_id = req.get("lesson")
+                    if lesson_id and req.get("srs"):
+                        self._json({"error": "bad request: lesson and srs are mutually exclusive"}, 400)
+                        return
+                    if lesson_id:                       # CURRICULUM_SPEC §4: unrated lesson drill
+                        result = service.submit_lesson(
+                            req["puzzle_id"], int(req["codec_id"]), uid, str(lesson_id), road)
+                    else:
+                        submit_fn = service.submit_srs if req.get("srs") else service.submit
+                        result = submit_fn(req["puzzle_id"], int(req["codec_id"]), uid, road)
                     self._json(result, 404 if result.get("error") else 200)
                 elif self.path == "/api/play/act":
                     if play is None:
@@ -312,6 +339,8 @@ def main() -> None:
     ap.add_argument("--puzzles", default="data/puzzles_v5.jsonl")
     ap.add_argument("--state", default="data/trainer_state.json",
                      help="JsonStore path (ignored if DATABASE_URL is set)")
+    ap.add_argument("--lessons", default="content/lessons",
+                     help="directory of curriculum lesson files (validated at startup)")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8321)
     ap.add_argument("--default-rung", type=int, default=6,
@@ -333,7 +362,7 @@ def main() -> None:
     args = ap.parse_args()
 
     store = get_store(args.state)
-    service = TrainerService(args.puzzles, store)
+    service = TrainerService(args.puzzles, store, lessons_dir=args.lessons)
 
     play, review, lab, lab_stats_for, analysis = None, None, None, None, None
     if not args.no_play:
@@ -367,7 +396,7 @@ def main() -> None:
             lab=lab, lab_stats_for=lab_stats_for, analysis=analysis,
         ),
     )
-    print(f"catan tactics trainer: {len(service.puzzles)} puzzles loaded")
+    print(f"catan tactics trainer: {len(service.puzzles)} puzzles, {len(service.lessons)} lessons loaded")
     print(f"play mode: bot ladder (default rung {args.default_rung})" if play else "play mode: disabled")
     print(f"open http://{args.host}:{args.port}")
     server.serve_forever()

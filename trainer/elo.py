@@ -38,6 +38,7 @@ class Ratings:
         self.srs: dict = d.get("srs", {})   # pid -> {box, due, lapses, added} (SRS_SPEC)
         self.skill: dict = d.get("skill", {})   # phase -> rating (DASHBOARD_SPEC §0)
         self.ladder: dict = d.get("ladder", {})   # play_elo + per-rung records (LADDER_SPEC)
+        self.lessons: dict = d.get("lessons", {})   # lesson id -> drill set/run/pass state (CURRICULUM_SPEC)
 
     # --- persistence ---
 
@@ -51,6 +52,7 @@ class Ratings:
                 "srs": self.srs,
                 "skill": self.skill,
                 "ladder": self.ladder,
+                "lessons": self.lessons,
             },
         )
 

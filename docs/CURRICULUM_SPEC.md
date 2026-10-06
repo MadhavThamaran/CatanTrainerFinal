@@ -104,3 +104,44 @@ day; tests ~0.5 day → **~2.5 days**, the most content-bound feature.
 Sequence AFTER explanations (EXPLAIN_SPEC) — lesson drills with "why"
 feedback teach twice as well — and after HOSTING if completion should
 be per-account from day one.
+
+## 8. As built
+
+Shipped 2026-10-06: `trainer/curriculum.py` (loader, drill resolution, run
+state), `TrainerService.lessons_view/lesson_view/next_lesson_drill/submit_lesson`,
+the routes below, the `📚 Learn` client, six lessons in `content/lessons/`, and
+`tests/test_curriculum.py`. Where it differs from the plan above:
+
+- **API.** `GET /api/lessons`, `GET /api/lessons/<id>` (rendered pages + drill
+  spec, no puzzle ids), `GET /api/lessons/<id>/next` (the next unanswered drill;
+  the server owns the set, like `/api/srs/next`) and `lesson: <id>` on
+  `POST /api/submit` (`lesson` together with `srs` is a 400). All need login.
+  The list also carries `lab_available`, so `link: lab` shows only where a lab
+  exists (not on `--no-play` deployments). `--lessons DIR` on the server.
+- **Runs.** A run is one pass through the drill set. It is scored when every
+  drill is answered (average >= `pass.avg_points` over at least
+  `pass.min_attempted`; exactly the bar passes) and then closed, so the next
+  `/next` is a retry on the SAME set. A half-finished run resumes. `passed` is
+  sticky; `runs`, `best_avg`, `last_avg` and `tested_out` are kept. The set is
+  resolved at the first `/next` and stored, so "not already rated" is judged once
+  and retries are identical; editing a lesson's filter or pins re-resolves it.
+- **Unrated, structurally.** `present(..., unrated=True)` creates no rating entry
+  and ships no ratings; `submit_lesson` never calls `Ratings.record`, never
+  enqueues SRS, and rejects puzzles outside the drill set. `Ratings.lessons` rides
+  in the existing per-user blob. "Seen" for freshness means rated (attempts > 0),
+  not merely viewed.
+- **Frontmatter.** A subset parser, no YAML dependency (scalars stay strings, so a
+  numeric-looking puzzle id is safe). Unknown keys, a pages-count mismatch, an
+  unreachable `count` and `min_attempted > count` fail at load. Optional
+  `link: lab`; defaults: count 8, difficulty `[easy, medium]`, pass 75 / count.
+  Markdown renders server-side to escaped HTML (headings, bold/italic, lists, code).
+- **Content.** Six 3-page drafts (about 100-170 words a page), written against
+  `docs/rules.md` and the engine's constants. Notably the discard limit is *above
+  9* (the §1 table says 7, which is base Catan). A tripwire test checks the text
+  for base-Catan lore. They want the human tone pass §5 calls for. Easy puzzles
+  are scarce in `trade` (6) and `devcard` (9), so those tracks draw from
+  easy+medium; only track 1 is limited to the easy band.
+- **Scoring notes.** A 75 average is about 6-7 of 8 best-move picks (a miss
+  usually scores 0-40 or -25). Placement drills use the trainer's composite score
+  (settlement + road); a random road after the best settlement still averages
+  about 88-91, so the bar is fair there.
