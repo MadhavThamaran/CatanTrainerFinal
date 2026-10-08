@@ -15,7 +15,7 @@ pass: {avg_points: 75, min_attempted: 8}
 
 Setup runs **A, B, B, A**: the first player places a settlement and road, then the second player places two in a row, then the first player places their second. So the first player gets the 1st and 4th picks and the second player the 2nd and 3rd. If you pick first you take the best corner on the board, and then hand your opponent two picks back to back.
 
-Two rules shape every pick. The **distance rule**: a settlement needs every neighbouring corner empty, so each settlement takes its own corner and denies the ones next to it. And only your **second** settlement pays out a starting hand, one card from each hex it touches.
+Two rules shape every pick. The **distance rule**: a settlement needs every neighboring corner empty, so each settlement takes its own corner and denies the ones next to it. And only your **second** settlement pays out a starting hand, one card from each hex it touches.
 
 So think about the whole draft, not one corner: after the opponent's two moves, what is the best corner you will still be able to get?
 
@@ -35,6 +35,6 @@ After their first settlement you know what the opponent's engine is built on and
 
 Use that in two directions. If a corner is the best one *for them* and good enough for you, taking it is double value. If you can only take one of two good corners, take the one they need more.
 
-Ports change the maths. A port corner tends to have fewer pips, but a 2:1 port on a resource you produce heavily is a conversion engine, and a 3:1 port helps whatever you end up with. Pips tell you how much you will collect; the port tells you how well you can spend it.
+Ports change the math. A port corner tends to have fewer pips, but a 2:1 port on a resource you produce heavily is a conversion engine, and a 3:1 port helps whatever you end up with. Pips tell you how much you will collect; the port tells you how well you can spend it.
 
 When you can, pick a corner whose road also points toward your next good one.

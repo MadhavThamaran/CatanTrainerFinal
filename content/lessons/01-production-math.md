@@ -21,7 +21,7 @@ Every hex carries a number, and it pays out whenever the two dice add up to it. 
 - **6 and 8:** 5 ways
 - **7:** 6 ways, and it pays nobody. It moves the robber instead.
 
-The dots printed under each token (pips) are exactly that count. A 6 or an 8 comes up about one roll in seven (5 of 36); a 7 about one roll in six.
+The dots printed under each token (pips) are exactly that count. A 6 comes up about one roll in seven (5 of 36), and so does an 8; a 7 comes up about one roll in six.
 
 ---
 # Income is a sum of pips
