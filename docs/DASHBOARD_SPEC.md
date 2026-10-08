@@ -113,3 +113,33 @@ days**. Day-one value with puzzle data alone (Form + Skills + skill-gap
 leaks + drill links); the Cost card and richer leaks light up as
 REVIEW/COACH/LAB ship — the payload is designed nullable so nothing
 blocks on anything.
+
+## 7. As built
+
+All four cards and every statement kind in §2 are live. The first build had Form, Skills and Cost plus
+the skill-gap and review-taxonomy leaks; the rest landed 2026-10-07.
+
+- **Coach override.** Over the player's last 30 *settled* coach warnings (`coach_events` whose outcome is
+  `confirmed` or `changed`; a warning still open when the game ended was neither heeded nor overridden), it
+  fires when at least 10 are settled, the played-anyway rate is >= 0.6, AND the overridden moves cost at least
+  the coach's own `normal` bar (0.10 win probability): playing on through a warning that cost nothing is not a
+  leak. A move's cost is the review's regret for it when that game was reviewed (events join review rows on
+  `log_index == at`, COACH_SPEC §3) and the coach's own estimate otherwise; `reviewed` in the provenance says how
+  many were re-checked at the deeper search. The statement states numbers only ("You played on through 8 of your
+  last 10 coach warnings; those moves gave up 20% win probability on average"): the spec's example clause "the
+  warnings are right more often than that" is a judgement the stored numbers do not make. Drill: a casual game
+  with the coach switched on.
+- **Lab biases** are the lab's own statements relayed verbatim, with `bias` = the lab's statement kind; its
+  thresholds and its n >= 15 gate stay in `trainer/lab.py`. The server passes the lab's `stats_for` to
+  `service.dashboard` when play mode, and so the lab, is on. Drill: the Placement lab.
+- **Which four.** Every kind that fires gets a slot before any kind gets a second one (before, six skill gaps could
+  crowd out everything else); the survivors are shown grouped by kind, skill gaps biggest first.
+- **Taxonomy drills (§3).** The leak's `drill` gains `phase` when its group names exactly one puzzle tag (robber
+  moves, trades, dev plays; builds, discards and end-turn timing span several tags or none, so they get no guessed
+  link) and `unreviewed` (a count) when games without a review exist, since their blunders are not in the counts.
+- **Per-rung W/L (LADDER_SPEC §7).** `form.by_rung`: a record counts under its rung only when its `ladder_version`
+  is the current table's (records carry it from 2026-10-07; rung numbers describe different bots after a re-spec);
+  everything else pools as "Earlier games". The overall `form.games` line is unchanged.
+- **SRS line (SRS_SPEC §4).** `form.srs` = `{due, active, graduated}`, null until a puzzle has ever entered the queue.
+- API: `dashboard.build(ratings, user_id, lab_stats_for=None)`. Tests: `tests/test_dashboard.py` (each gate at its
+  boundary, the review-regret join, the selection policy, the lab's real payload end to end, the HTTP wiring).

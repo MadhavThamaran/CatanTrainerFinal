@@ -67,6 +67,21 @@ def test_game_record_is_tagged_with_the_players_user_id():
     assert record["user_id"] == 7
 
 
+def test_game_record_is_stamped_with_the_ladder_table_it_was_played_against():
+    """The dashboard's per-rung W/L counts a record under its rung only while this still matches
+    (rung numbers describe different bots after a re-spec)."""
+    import json
+
+    import trainer.play as tp
+    from trainer import ladder
+
+    svc = _svc()
+    view = svc.new_game(seed=301_009)
+    svc._sessions[view["session"]]._persist()
+    record = json.loads((tp._GAMES_DIR / f"{view['session']}.json").read_text())
+    assert record["ladder_version"] == ladder.LADDER_VERSION
+
+
 def test_view_never_leaks_bot_hand():
     svc = _svc()
     rng = random.Random(1)

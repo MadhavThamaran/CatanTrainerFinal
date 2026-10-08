@@ -23,7 +23,9 @@ don't re-design. Statuses as of 2026-10-06.
       `trainer/review.py` + `/api/review/start` + `/api/review/poll` +
       the review UI (accuracy, verdict chips, win-prob graph, click-a-
       move board replay). (Game recording + replay-integrity test: DONE,
-      shipped earlier.)
+      shipped earlier.) Reopening past games DONE 2026-10-07: Recent games
+      list on the opponent screen (`/api/games`, `/api/games/<id>`), a
+      failure-safe review worker, REVIEW_SPEC §9.
 - [x] **COACH_SPEC.md** — pre-move interjection coaching. DONE 2026-09-29:
       `PlaySession.submit()` gates on a coach `MCTSEngine` (same checkpoint,
       human's info set); flagged moves bounce with state UNCHANGED, "play
@@ -34,7 +36,8 @@ don't re-design. Statuses as of 2026-10-06.
       `trainer/dashboard.py` (Form/Skills/Leaks/Cost cards),
       per-skill Elo in `Ratings`, `/api/dashboard`, phase-filtered
       `/api/next?phase=`, "📈 Progress" UI. Coach-override and
-      placement-lab leak types stay absent (nullable) until those ship.
+      placement-lab leaks, per-rung W/L and the SRS counts line landed
+      2026-10-07 (DASHBOARD_SPEC §7).
 - [x] **EXPLAIN_SPEC.md** — facts-based explanations. DONE 2026-09-29:
       `puzzles/explain.py` (`move_facts`/`render`/`render_miss`, no
       search), wired into puzzle labeling (`Puzzle.facts`), the puzzle

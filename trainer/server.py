@@ -104,7 +104,7 @@ def make_handler(
                     if uid is None:
                         self._json({"error": "unauthenticated"}, 401)
                         return
-                    self._json(service.dashboard(uid))
+                    self._json(service.dashboard(uid, lab_stats_for=lab_stats_for))
                 elif path == "/api/srs/summary":
                     uid = _user_id(self)
                     if uid is None:
@@ -175,6 +175,22 @@ def make_handler(
                         qs.get("id", [""])[0], int(qs.get("from", ["0"])[0])
                     )
                     self._json(result, 404 if "error" in result else 200)
+                elif path == "/api/games" or path.startswith("/api/games/"):
+                    # REVIEW_SPEC §6: the player's recent games, and any one of them rebuilt as
+                    # a finished play screen, so old games stay reviewable after a restart.
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    if review is None:
+                        self._json({"error": "review not available on this deployment"}, 404)
+                        return
+                    game_id = path[len("/api/games"):].strip("/")
+                    if not game_id:
+                        self._json({"games": review.list_games(uid), "review_running": review.running()})
+                    else:
+                        result = review.open_game(game_id, uid)
+                        self._json(result, 404 if "error" in result else 200)
                 elif path == "/api/lab/new":
                     if lab is None:
                         self._json({"error": "placement lab not available on this deployment"}, 404)

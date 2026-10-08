@@ -210,8 +210,8 @@
   .skillbar-n { width: 46px; text-align: right; flex-shrink: 0; color: #8a7a58; }
   .leak-row { padding: 8px 0; border-bottom: 1px solid #e2d7b8; font-size: 13px; color: #4a3b23; }
   .leak-row:last-child { border-bottom: none; }
-  .leak-drill { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 800;
-                color: #2563eb; cursor: pointer; }
+  .leak-drill { display: block; width: fit-content; margin-top: 4px; font-size: 12px;
+                font-weight: 800; color: #2563eb; cursor: pointer; }
   .cost-stage { display: flex; justify-content: space-between; font-size: 12.5px;
                 padding: 3px 0; color: #5d4f33; }
   .trend-up { color: #15803d; } .trend-down { color: #b91c1c; } .trend-flat { color: #8a7a58; }
@@ -245,6 +245,24 @@
   #laddertoast { display: none; background: #fff7ed; border: 2px solid #fb923c;
                  border-radius: 12px; padding: 10px 14px; margin: 8px 0; font-size: 13px;
                  color: #7c2d12; font-weight: 700; }
+  /* recent games on the ladder screen (REVIEW_SPEC §6) */
+  #recentgames { display: none; margin-top: 22px; }
+  #recentgames h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase;
+                    letter-spacing: .6px; color: #8a7a58; }
+  #recenterr { color: #b91c1c; font-size: 12.5px; margin-bottom: 6px; }
+  .gamerow { display: flex; align-items: center; gap: 10px; background: #f7f1df;
+             border-radius: 12px; padding: 9px 14px; margin-bottom: 7px; cursor: pointer;
+             box-shadow: 0 1px 4px rgba(0,0,0,.12); border-left: 5px solid #c9bd9c; }
+  .gamerow.you { border-left-color: #16a34a; }
+  .gamerow.bot { border-left-color: #b91c1c; }
+  .gr-res { font-weight: 800; font-size: 13px; width: 38px; color: #2d2418; flex-shrink: 0; }
+  .gr-main { flex: 1; min-width: 0; font-size: 13.5px; color: #2d2418; font-weight: 700; }
+  .gr-sub { display: block; font-size: 12px; font-weight: 400; color: #8a7a58; }
+  .gr-rev { font-size: 12.5px; color: #7c3aed; font-weight: 700; flex-shrink: 0; }
+  .gr-hint { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  #reviewmsg { display: none; font-size: 12.5px; color: #b91c1c; margin-top: 6px; }
+  .rung-rec { display: flex; justify-content: space-between; font-size: 12.5px;
+              padding: 2px 0; color: #5d4f33; }
   /* curriculum (CURRICULUM_SPEC) */
   #lessonbadge { display: none; align-items: center; gap: 8px; white-space: nowrap; }
   #lessonbadge .lbtrack { width: 56px; height: 8px; background: #d5dfe8; border-radius: 4px;
@@ -378,6 +396,7 @@
       <div id="loglines"></div>
       <div id="laddertoast"></div>
       <button id="reviewbtn" style="display:none" onclick="startReview()">📊 Review game</button>
+      <div id="reviewmsg"></div>
       <button id="rematchbtn" style="display:none" onclick="loadGame()">🔁 Rematch</button>
       <button id="newgame" onclick="showLadderScreen()">🎮 Choose opponent</button>
     </div>
@@ -429,8 +448,8 @@
         <div id="reviewwhy"></div>
         <button class="labbtn" id="reviewanalyzebtn" style="display:none;background:#7c3aed"
                 onclick="openAnalysis('game', REVIEW.reviewId, REVIEW.rows[REVIEW.selected].log_index)">🔬 Analyze this decision</button>
-        <button id="reviewback" onclick="backToGame()">↩ Back to game</button>
       </div>
+      <button id="reviewback" onclick="backToGame()">↩ Back to game</button>
     </div>
     <div class="card" id="result">
       <div id="points"></div>
@@ -480,6 +499,11 @@
         Rated — no coach, counts for Elo + stars</label>
     </div>
     <button id="ladderstart" disabled onclick="startLadderGame()">Pick an opponent</button>
+    <div id="recentgames">
+      <h3>Recent games <span class="gr-hint">— click one to reopen it, or its review</span></h3>
+      <div id="recenterr"></div>
+      <div id="recentlist"></div>
+    </div>
   </div>
 </div>
 <div id="learnoverlay">
@@ -816,10 +840,24 @@ function renderDformCard(form) {
   html += form.games
     ? `<div class="dsub">vs bot: ${form.games.wins}W ${form.games.losses}L ${form.games.draws}D (${form.games.total} games)</div>`
     : `<div class="dempty">Play a few games vs the bot to see W/L here.</div>`;
+  html += renderRungRecords(form.by_rung);
   html += form.review_accuracy_trend
     ? `<div class="dsub">review accuracy (last ${form.review_accuracy_trend.n}): ${form.review_accuracy_trend.mean}%</div>`
     : `<div class="dempty">Review a game to see your accuracy trend.</div>`;
+  if (form.srs) {
+    html += `<div class="dsub">review queue: ${form.srs.active} active` +
+      `${form.srs.due ? ` (${form.srs.due} due)` : ""} · ${form.srs.graduated} graduated</div>`;
+  }
   el.innerHTML = html;
+}
+
+// Per-opponent W/L (LADDER_SPEC §7) — only worth a section once a game was played on the
+// current rung table; "Earlier games" pools the ones whose rung numbers meant other bots.
+function renderRungRecords(rows) {
+  if (!rows || !rows.some(r => r.rung !== null)) return "";
+  return `<div class="dsub" style="margin-top:8px">by opponent</div>` + rows.map(r =>
+    `<div class="rung-rec"><span>${r.rung !== null ? r.rung + ". " : ""}${r.name}</span>` +
+    `<span>${r.wins}W ${r.losses}L${r.draws ? ` ${r.draws}D` : ""}</span></div>`).join("");
 }
 
 function renderDskillsCard(skills) {
@@ -845,13 +883,8 @@ function renderDleaksCard(leaks) {
   for (const l of leaks) {
     const row = document.createElement("div");
     row.className = "leak-row";
-    let drillHtml = "";
-    if (l.drill && l.drill.type === "trainer") {
-      drillHtml = `<div class="leak-drill" onclick="startPhaseDrill('${l.drill.phase}')">Drill this →</div>`;
-    } else if (l.drill && l.drill.type === "review") {
-      drillHtml = `<div class="leak-drill" onclick="startReviewDrill()">Play &amp; review →</div>`;
-    }
-    row.innerHTML = `${l.statement}${drillHtml}`;
+    const icon = l.kind === "lab_bias" ? "🧪 " : l.kind === "coach_override" ? "🎓 " : "";
+    row.innerHTML = `${icon}${l.statement}${leakDrillHtml(l.drill)}`;
     el.appendChild(row);
   }
 }
@@ -884,11 +917,52 @@ function startPhaseDrill(phase) {
   else loadNext();
 }
 
-function startReviewDrill() {
+// "Drill this →" (DASHBOARD_SPEC §3): every leak ends in a button that goes somewhere useful.
+function leakDrillHtml(d) {
+  if (!d) return "";
+  const link = (label, js) => `<div class="leak-drill" onclick="${js}">${label}</div>`;
+  if (d.type === "trainer") return link("Drill this →", `startPhaseDrill('${d.phase}')`);
+  if (d.type === "coach") return link("Play with the coach on →", "startCoachDrill()");
+  if (d.type === "lab") return link("Open the placement lab →", "startLabDrill()");
+  if (d.type === "review") {
+    let html = d.phase ? link(`Drill ${d.phase} puzzles →`, `startPhaseDrill('${d.phase}')`) : "";
+    if (d.unreviewed) {
+      html += link(`Review your recent games (${d.unreviewed} not yet reviewed) →`, "startReviewDrill()");
+    } else if (!d.phase) {
+      html += link("Play &amp; review →", "startReviewDrill()");
+    }
+    return html;
+  }
+  return "";
+}
+
+function openLadderScreenFromDashboard() {
   hideDashboard();
-  switchMode("play");
+  if (APP_MODE !== "play") switchMode("play");   // opens the opponent screen, which lists recent games
+  else showLadderScreen();
+}
+
+function startReviewDrill() {
+  openLadderScreenFromDashboard();
   document.getElementById("prompttext").textContent =
-    "Play a game, then hit 📊 Review game when it's over — that's how you fix this.";
+    "Review a recent game (or play one, then hit 📊 Review game) — that's how you fix this.";
+}
+
+function startCoachDrill() {
+  COACH_ON = true;
+  try { localStorage.setItem("coach", "1"); } catch (e) {}
+  LADDER_RATED = false;                                  // the coach only plays in casual games
+  const casual = document.querySelector('input[name="ratedopt"][value="casual"]');
+  if (casual) casual.checked = true;
+  renderCoachBadge();
+  openLadderScreenFromDashboard();
+  document.getElementById("prompttext").textContent =
+    "Coach is on: when it warns you, try 🤔 Think again before ▶️ Play it anyway.";
+}
+
+function startLabDrill() {
+  hideDashboard();
+  switchMode("lab");
 }
 
 function showAuthCard() {
@@ -966,6 +1040,7 @@ const RUNG_ICON = {1:"🌱",2:"🎯",3:"⚔️",4:"🛡️",5:"🏹",6:"👑",7:
 
 async function showLadderScreen() {
   document.getElementById("ladderoverlay").style.display = "block";
+  document.getElementById("recentgames").style.display = "none";   // never show last visit's list (stale badges)
   const r = await fetch("/api/ladder");
   if (r.status === 401) { showAuthCard(); return; }
   LADDER_DATA = await r.json();
@@ -973,6 +1048,7 @@ async function showLadderScreen() {
     LADDER_RUNG = null;   // stale/locked selection from a previous account
   }
   renderLadderCards();
+  loadRecentGames();
 }
 
 function hideLadderScreen() {
@@ -980,6 +1056,66 @@ function hideLadderScreen() {
   // Opened mid-game (via "Choose opponent") -> back to that game, not away
   // from play mode entirely; opened with nothing in progress -> trainer.
   if (!(APP_MODE === "play" && PZ && PZ.session)) switchMode("trainer");
+}
+
+/* ---- reopening past games (REVIEW_SPEC §6) ---- */
+
+let RECENT_GAMES = null;   // /api/games: {games: [...], review_running}
+
+async function loadRecentGames() {
+  document.getElementById("recentgames").style.display = "none";
+  document.getElementById("recenterr").textContent = "";
+  let v = null;
+  try {
+    const r = await fetch("/api/games");
+    if (r.ok) v = await r.json();
+  } catch (e) { /* the list is a convenience: the opponent picker works without it */ }
+  RECENT_GAMES = v;
+  if (v && v.games.length) renderRecentGames();
+}
+
+function renderRecentGames() {
+  const list = document.getElementById("recentlist");
+  list.innerHTML = "";
+  for (const g of RECENT_GAMES.games) {
+    const row = document.createElement("div");
+    row.className = "gamerow " + g.winner;
+    const result = g.winner === "you" ? "Win" : g.winner === "bot" ? "Loss" : "Draw";
+    const opp = g.rung ? `${RUNG_ICON[g.rung] || ""} ${g.rung_name}` : g.rung_name;
+    const when = g.ts ? new Date(g.ts).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+    const rev = RECENT_GAMES.review_running === g.id ? "⏳ reviewing…"
+      : !g.reviewed ? ""
+      : g.accuracy != null ? `📊 ${Math.round(g.accuracy)}%` : "📊 reviewed";
+    row.innerHTML =
+      `<span class="gr-res">${result}</span>` +
+      `<span class="gr-main">${opp} · ${g.rated ? "rated" : "casual"}` +
+      `<span class="gr-sub">${g.final_vp.you}–${g.final_vp.bot} VP · ${when}</span></span>` +
+      `<span class="gr-rev">${rev}</span>`;
+    row.onclick = () => openPastGame(g.id, g.reviewed);
+    list.appendChild(row);
+  }
+  document.getElementById("recentgames").style.display = "block";
+}
+
+// A finished game comes back as the same payload a live one ends with, so the play screen
+// renders it with the live code; a game that has a review (or is being reviewed) opens it too.
+async function openPastGame(id, reviewed) {
+  const err = document.getElementById("recenterr");
+  err.textContent = "";
+  let r, v;
+  try { r = await fetch(`/api/games/${encodeURIComponent(id)}`); v = await r.json(); }
+  catch (e) { err.textContent = `Could not open that game: ${e}`; return; }
+  if (r.status === 401) { showAuthCard(); return; }
+  if (!r.ok) { err.textContent = v.error || `Could not open that game (${r.status})`; return; }
+  document.getElementById("ladderoverlay").style.display = "none";
+  closeReview();
+  hideCoachCard();
+  document.getElementById("loglines").innerHTML = "";
+  document.getElementById("laddertoast").style.display = "none";
+  applyPlayNow(v);
+  appendEvents(v.events);
+  document.getElementById("rematchbtn").style.display = "none";   // it is not the game you just played
+  if (reviewed || (RECENT_GAMES && RECENT_GAMES.review_running === id)) startReview();
 }
 
 function renderLadderCards() {
@@ -1629,11 +1765,17 @@ async function startReview() {
     document.getElementById("reviewbtn").disabled = false;
     return;
   }
+  if (r.status === 409) {   // REVIEW_SPEC §6: one review at a time — say so instead of crashing the page
+    reviewMessage("A review of another game is still running — try again when it finishes.");
+    document.getElementById("reviewbtn").disabled = false;
+    return;
+  }
   if (!r.ok) {
     showFatal(`/api/review/start -> ${v.error || r.status}`);
     document.getElementById("reviewbtn").disabled = false;
     return;
   }
+  reviewMessage("");
   REVIEW = { reviewId: v.review_id, total: v.total, rows: [], liveBoard: PZ.board, selected: -1 };
   document.getElementById("gamelog").style.display = "none";
   document.getElementById("reviewcard").style.display = "block";
@@ -1650,6 +1792,10 @@ async function pollReview() {
   if (v.error) { showFatal(`/api/review/poll -> ${v.error}`); return; }
   REVIEW.rows.push(...v.results);
   REVIEW.total = v.total;
+  if (v.failed) {   // the worker stopped (the review service stays usable): say why, keep Back reachable
+    document.getElementById("reviewprogress").textContent = `Review failed: ${v.failed}`;
+    return;
+  }
   renderReviewProgress();
   if (v.done) { renderReviewFinal(); return; }
   setTimeout(pollReview, 1500);
@@ -1754,8 +1900,15 @@ function backToGame() {
   }
 }
 
+function reviewMessage(text) {
+  const el = document.getElementById("reviewmsg");
+  el.textContent = text;
+  el.style.display = text ? "block" : "none";
+}
+
 function closeReview() {
   REVIEW = null;
+  reviewMessage("");
   document.getElementById("reviewcard").style.display = "none";
   document.getElementById("reviewheader").style.display = "none";
   document.getElementById("reviewbtn").disabled = false;

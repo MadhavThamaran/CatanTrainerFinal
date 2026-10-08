@@ -248,6 +248,9 @@ class PlaySession:
             "bot": self.net_path,
             "rung": self.rung,
             "rated": self.rated,
+            # Rung numbers only mean something under one rung table: the dashboard's
+            # per-rung W/L counts a record under its rung only if this still matches.
+            "ladder_version": ladder.LADDER_VERSION,
             "user_id": self.user_id,
             "log": self.log,
             "coach_events": self.coach_events,

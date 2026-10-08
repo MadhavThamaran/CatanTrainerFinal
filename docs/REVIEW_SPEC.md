@@ -164,3 +164,27 @@ machine-independent. No new dependencies.
   chips; graph renders; clicking a blunder shows the position with your
   move and the engine's move marked; reload the page → finished review
   loads from cache; `pytest tests/test_review.py` green.
+
+## 9. As built: reopening past games (2026-10-07)
+
+§6's "the Game log card lists recent records" shipped as a **Recent games** list on the opponent screen, the
+screen play mode opens on (the Game log card is behind it until a game starts).
+
+- `GET /api/games` -> `{games: [...], review_running}`: the player's newest 20 finished games (their own, plus
+  records written before records carried a `user_id`), each `{id, ts, rung, rung_name, rated, winner, final_vp,
+  reviewed, accuracy}` oriented to the human's seat. A rung is named only for games played on the current rung
+  table (`ladder_version`); older ones read "Earlier game".
+- `GET /api/games/<id>` -> the finished play screen rebuilt by replaying the stored record: the payload shape
+  `PlaySession.view()` ends a game with (board, hands, a game log with the rolls and any coached verdicts) plus
+  `reviewed`, so the client renders it with the live-game code and the Review button works unchanged. A record that
+  no longer replays to its stored result (the engine changed since it was played) answers with an error that says
+  so, shown inline on the list.
+- Clicking a reviewed game opens its review straight from the cache. Starting the review of the game that is already
+  being reviewed joins it (no 409); a different game's review still answers 409, now shown as a one-line message
+  instead of a fatal page. "Back to game" is visible while a review is still scoring.
+- **Failures.** A review worker that raises (the replay-integrity assert, a missing checkpoint) reports `failed`
+  through `poll`, writes no cache and releases the single-flight lock. Before, the dead thread left every later review
+  refused with 409 until a restart. The cache is now written atomically, and a torn one is recomputed.
+- Game ids are validated (`[A-Za-z0-9_-]{1,64}`) before they become part of a file path.
+- Not done: `/api/review/start` and `/api/review/poll` still accept any game id with no login or ownership check
+  (the list and reopen routes do check both). Add that before hosting play (HOSTING).

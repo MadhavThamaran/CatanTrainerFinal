@@ -7,7 +7,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~1-4min, 325 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 387 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
@@ -51,6 +51,11 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   scores every human play-mode decision at deeper search than play used,
   chess.com-style report (accuracy, verdict chips, win-prob graph,
   click-a-move board replay). `/api/review/start`, `/api/review/poll`.
+  Past games reopen from the opponent screen's Recent games list
+  (`/api/games`, `/api/games/<id>`: a finished play screen rebuilt by
+  replaying the record, per-user); the worker reports failures through
+  `poll` instead of wedging the single-flight lock. `/api/review/*` still
+  take any game id with no login/ownership check (a hosting prerequisite).
 - **SRS (SRS_SPEC.md) shipped**: `trainer/srs.py` — Leitner boxes on
   rated trainer misses (<75 pts), stored in the same per-user ratings
   blob. `/api/srs/summary`, `/api/srs/next`, `srs:true` on `/api/submit`
@@ -58,9 +63,15 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - **Weakness dashboard (DASHBOARD_SPEC.md) shipped**: `trainer/dashboard.py`
   aggregates per-skill Elo (`Ratings.skill`, new), play-mode game/review
   records into Form/Skills/Leaks/Cost cards. `/api/dashboard` (30s
-  cache), `/api/next?phase=` drill filter. Coach-override and
-  placement-lab leak types are not wired yet (nullable) — both source
-  specs have shipped since, so that's a follow-up.
+  cache), `/api/next?phase=` drill filter. All four leak kinds are live:
+  skill gap, review taxonomy, coach override (last 30 settled warnings,
+  played-anyway rate >= 0.6 over >= 10, the overridden moves cost >= the
+  coach's own 0.10 bar, using the review's regret via `log_index` when the
+  game was reviewed) and the lab's bias statements relayed verbatim
+  (the server passes `stats_for` to `service.dashboard`); every kind that fires gets a slot before any
+  kind gets a second (max 4). The Form card gains per-rung W/L (records
+  carry `ladder_version`; games from another rung table pool as "Earlier
+  games") and the SRS active/graduated line.
 - **Coach mode (COACH_SPEC.md) shipped**: `PlaySession.submit()` gates
   every human play-mode action through a coach `MCTSEngine` (same
   checkpoint as the bot, judged from the human's info set); a move over
@@ -212,5 +223,5 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Explanatory strings shown to users derive ONLY from computed facts —
   no vibes (see EXPLAIN_SPEC honesty rules; same contract in lab,
   dashboard, coach specs).
-- Tests are the porting/refactor contract: 325 passing, spec-mapped
+- Tests are the porting/refactor contract: 387 passing, spec-mapped
   files per feature (`tests/test_<feature>.py`).
