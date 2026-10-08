@@ -445,9 +445,10 @@ uv run python -m net.selfplay --games 500 --net checkpoints/big1.pt \
 
 The trainer app now has a second mode: **play a live 1v1 against the bot
 ladder** (`trainer/play.py`, `trainer/ladder.py`; toggle in the top-left
-of the UI, login required). Eight named rungs package the archive of
-training generations into a progression — Settler (the raw heuristic, no
-search) up through The Engine (gen7, sims=800/dets=6); rungs 1-3 start
+of the UI, login required). Eight named rungs form a progression — since
+2026-10-07 one cheap gen-7 bot that plays a random plausible move at a
+falling rate (Settler 55% ... Grandmaster 0%), topped by the same net
+searching deeper (The Engine); rungs 1-3 start
 unlocked, beating a rung unlocks the next. A separate play-Elo (K=24,
 starting 1200) moves only in RATED games against each rung's fixed
 rating; casual games (coach allowed) still unlock rungs but don't move
@@ -460,9 +461,138 @@ get a pick-your-cards UI with a confirm (the one action the codec can't
 express). Actions apply instantly on click, colonist-style — take as
 many as you want, then ⏭ End turn; only the trainer stages moves behind
 a Submit (a puzzle answer is one scored commitment). Same board renderer
-and action composer as the trainer. Rung Elo ratings are provisional
-(declared guesses) until `scripts/ladder_calibrate.py`'s measurement
-pass is run.
+and action composer as the trainer. Rung Elo ratings started as declared
+guesses and have since been measured (next section).
+
+### Measured: the ladder is far flatter than declared (2026-10-06)
+
+`scripts/ladder_calibrate.py`: 12 rung pairs x 60 games (720 games,
+alternating seats), seeds 91,000,000-91,011,059 (the ledger's reserved
+range), 14 workers, **14.1 h** (the script's own estimate was 8-10 h).
+Rung 3 is pinned at 1200 and the ratings are fitted to the pairwise results
+(`data/ladder_v1_calibration.json`, `data/ladder_v1_calibration_results.json`,
+`data/ladder_v1_calibration_report.txt`; "v1" because the rung table was
+re-specced from these results, below).
+
+| pair | first rung's wins | rate (Wilson 95% CI) | implied gap |
+|---|---|---|---|
+| 1 Settler vs 2 Apprentice | 29/60 | 48% (36-61%) | -12 |
+| 2 Apprentice vs 3 Journeyman | 22/60 | 37% (26-49%) | -95 |
+| 3 Journeyman vs 4 Veteran | 20/60 | 33% (23-46%) | -120 |
+| 4 Veteran vs 5 Expert | 27/60 | 45% (33-58%) | -35 |
+| 5 Expert vs 6 Master | 29/60 | 48% (36-61%) | -12 |
+| 6 Master vs 7 Grandmaster | 27/60 | 45% (33-58%) | -35 |
+| 7 Grandmaster vs 8 The Engine | 34/60 | 57% (44-68%) | +47 |
+| 1 Settler vs 3 Journeyman | 28/60 | 47% (35-59%) | -23 |
+| 3 Journeyman vs 5 Expert | 17/60 | 28% (19-41%) | -161 |
+| 3 Journeyman vs 6 Master | 15/60 | 25% (16-37%) | -191 |
+| 3 Journeyman vs 7 Grandmaster | 16/60 | 27% (17-39%) | -176 |
+| 3 Journeyman vs 8 The Engine | 9/60 | 15% (8-26%) | -301 |
+
+Fitted ratings, declared -> measured: Settler 800 -> **1149**, Apprentice
+1000 -> **1134**, Journeyman 1200 (pinned), Veteran 1400 -> **1326**, Expert
+1550 -> **1366**, Master 1700 -> **1387**, Grandmaster 1850 -> **1428**, The
+Engine 2000 -> **1426**.
+
+- **The ladder spans ~290 Elo, not the declared 1,200.** There are two tiers:
+  the non-net rungs 1-3 (1134-1200; Settler vs Apprentice is a coin flip) and
+  the net rungs 4-8 (1326-1428). One 60-game pair resolves about +-45 Elo, so
+  gaps inside a tier are mostly noise: the script flagged two inversions
+  (Settler above Apprentice, Grandmaster above The Engine).
+- **Search depth buys almost nothing here.** The Engine (sims=800/dets=6, ~7.6 s
+  per move on this machine) is not measurably above Master (sims=160/dets=4,
+  ~1.2 s): +39 Elo for ~6x the thinking time — the same exhausted sims lever
+  that gen-9's training turn found.
+- So the table was re-specced as strength dials (next section).
+
+### v2: rungs as strength dials (2026-10-07)
+
+A dial probe (frozen copy of the code, seeds 93,000,000-93,009,999; 80 games per
+setting against the heuristic bot, rated on the anchor scale where the
+heuristic = 1149.4) found that **search depth is flat** — gen-7 with 8 sims x 1
+determinization (the net's policy plus a token search) is as strong as 64 x 3
+within noise — while **a random-move rate moves strength steeply and smoothly**:
+
+| gen-7 setting (sims x dets, random-move rate) | wins/80 | Elo (95% CI) |
+|---|---|---|
+| 64 x 3, 0 | 54 | 1276 (1196-1357) |
+| 32 x 2, 0 | 58 | 1318 (1233-1402) |
+| 16 x 2, 0 | 53 | 1267 (1187-1346) |
+| 8 x 1, 0 | 54 | 1276 (1196-1357) |
+| 32 x 2, 0.10 | 40 | 1149 (1074-1225) |
+| 32 x 2, 0.20 | 37 | 1123 (1048-1199) |
+| 32 x 2, 0.30 | 22 | 981 (897-1065) |
+| 32 x 2, 0.45 | 11 | 830 (722-939) |
+| 32 x 2, 0.65 | 1 | 390 (230-693) |
+| 32 x 2, 0.85 | 0 | 230 (230-622) |
+
+Elo is floored at a 0.5% win rate (230 against the heuristic), so the 230s are
+floors, not estimates: 0 wins in 80 only says the config is below ~620. The harness
+is `scripts/ladder_dial_probe.py` (results in `data/ladder_dial_probe_results.json`,
+log in `data/ladder_dial_probe_report.txt`).
+
+The rungs therefore became one cheap bot (gen-7, 16 x 2) with a falling
+random-move rate (`agents/noisy.py::EpsilonAgent`) plus a deeper-search top rung,
+spaced in 100-Elo steps by a fit to the probe, p(win vs heuristic) =
+0.683 * (1 - eps/0.70)^1.52:
+
+| rung | random-move rate | target Elo | measured Elo |
+|---|---|---|---|
+| 1 Settler | 0.55 | 687 | **545** |
+| 2 Apprentice | 0.49 | 787 | **657** |
+| 3 Journeyman | 0.41 | 887 | **831** |
+| 4 Veteran | 0.31 | 987 | **917** |
+| 5 Expert | 0.20 | 1087 | **1039** |
+| 6 Master | 0.09 | 1187 | **1188** |
+| 7 Grandmaster | 0 | 1287 | **1260** |
+| 8 The Engine (gen-7, 160 x 4) | 0 | 1387 | **1358** |
+
+### Measured: the dials work (2026-10-07)
+
+`scripts/ladder_calibrate.py`, rewritten for v2: 15 pairs x 60 games (900 games,
+alternating seats) — the 7 adjacent rung pairs plus every rung against the anchor
+(raw MCTS 160 x 4, the v1 "Journeyman", pinned at 1200, so v1 and v2 numbers share
+one scale) — seeds 92,000,000-92,014,999, 14 workers, **2.4 h** (v1: 14.1 h for 720
+games). Results: `data/ladder_calibration.json`,
+`data/ladder_calibration_results.json`, `data/ladder_calibration_report.txt`.
+
+| pair | first rung's wins | rate (Wilson 95% CI) | implied gap |
+|---|---|---|---|
+| 1 Settler vs 2 Apprentice | 22/60 | 37% (26-49%) | -95 |
+| 2 Apprentice vs 3 Journeyman | 18/60 | 30% (20-43%) | -147 |
+| 3 Journeyman vs 4 Veteran | 25/60 | 42% (30-54%) | -58 |
+| 4 Veteran vs 5 Expert | 20/60 | 33% (23-46%) | -120 |
+| 5 Expert vs 6 Master | 16/60 | 27% (17-39%) | -176 |
+| 6 Master vs 7 Grandmaster | 23/60 | 38% (27-51%) | -83 |
+| 7 Grandmaster vs 8 The Engine | 19/60 | 32% (21-44%) | -134 |
+| 1 Settler vs anchor | 0/60 | 0% (0-6%) | < -477 |
+| 2 Apprentice vs anchor | 2/60 | 3% (1-11%) | -585 |
+| 3 Journeyman vs anchor | 6/60 | 10% (5-20%) | -382 |
+| 4 Veteran vs anchor | 12/60 | 20% (12-32%) | -241 |
+| 5 Expert vs anchor | 19/60 | 32% (21-44%) | -134 |
+| 6 Master vs anchor | 28/60 | 47% (35-59%) | -23 |
+| 7 Grandmaster vs anchor | 37/60 | 62% (49-73%) | +83 |
+| 8 The Engine vs anchor | 40/60 | 67% (54-77%) | +120 |
+
+(A 0-win pair only bounds the gap; the table shows the 95% bound.)
+
+- **The ladder now spans 545-1358: 813 Elo in eight monotone rungs** (v1: ~290, in
+  two tiers). The fit found no inversions, so nothing was pooled.
+- **Steps run 72-174 Elo, mean 116** (designed: 100). One 60-game adjacent pair
+  resolves about +-47 Elo and the steps' standard deviation is 36, so the
+  unevenness is the size of the measurement noise.
+- **The top five rungs land within 70 Elo of their targets; the bottom three land
+  56-142 below.** Likely cause (not tested): the dial fit was extrapolated through
+  its sparsest probe points (eps 0.65 won once in 80 games; eps 0.45's interval
+  spans 722-939), so the weakest rungs play weaker than the fit predicted. Kept as
+  measured rather than re-tuned: the rating shown, and scored for play-Elo, is the
+  measured one, and the mean step is already inside the intended 100-150 band.
+  Moving a rung is one epsilon edit plus a `--resume` run, which replays only the
+  pairs whose bot changed.
+- **The scale held across the re-spec.** The Engine is v1's Master (gen-7,
+  160 x 4): 1387 then, 1358 now, on independent pairs against different opponents.
+- **Cost.** 8,504 s end to end. Two pairs took 31 and 37 minutes (Grandmaster vs
+  The Engine, The Engine vs the anchor); every other pair took 2.5-9 minutes.
 
 ## The puzzle pipeline (Stage 6 / M6)
 

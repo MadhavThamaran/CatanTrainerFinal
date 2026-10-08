@@ -36,3 +36,21 @@ def _isolate_ladder_calibration(monkeypatch):
     measured ratings set `ladder._CALIBRATED` themselves.
     """
     monkeypatch.setattr("trainer.ladder._CALIBRATED", {})
+
+
+@pytest.fixture
+def fast_rung1(monkeypatch):
+    """Rung 1 = the plain heuristic (no net, no search): instant and strong enough to
+    finish a game quickly, so play-mode tests can play full games.
+
+    The real rung 1 is a mostly-random net bot; a random-moving test "human" would need
+    hundreds of decisions to finish a game against it, and a review would score every
+    one. Play-mode tests are about game flow, not bot strength, so they opt in with
+    `pytestmark = pytest.mark.usefixtures("fast_rung1")` (or the fixture argument) and
+    stay independent of how the ladder table is specced.
+    """
+    from trainer import ladder
+
+    monkeypatch.setitem(
+        ladder._BY_NUMBER, 1, ladder.Rung(1, "Test heuristic", "heuristic", None, 0, 0, 800.0)
+    )

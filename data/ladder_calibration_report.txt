@@ -1,0 +1,28 @@
+===== 2026-10-07 12:09:12 wrapper pid 28356: awake held, below-normal priority=True
+===== command: D:\Madhav\CatanTrainer\.venv\Scripts\python.exe -u scripts\ladder_calibrate.py --games 60 --seed-offset 92000000 --workers 14 --resume
+15 pairs, 60 games/pair (900 games total)
+[1/15] rung 1 (Settler) vs rung 2 (Apprentice): 22/60 (150s elapsed)
+[2/15] rung 2 (Apprentice) vs rung 3 (Journeyman): 18/60 (312s elapsed)
+[3/15] rung 3 (Journeyman) vs rung 4 (Veteran): 25/60 (478s elapsed)
+[4/15] rung 4 (Veteran) vs rung 5 (Expert): 20/60 (671s elapsed)
+[5/15] rung 5 (Expert) vs rung 6 (Master): 16/60 (858s elapsed)
+[6/15] rung 6 (Master) vs rung 7 (Grandmaster): 23/60 (1090s elapsed)
+[7/15] rung 7 (Grandmaster) vs rung 8 (The Engine): 19/60 (2930s elapsed)
+[8/15] rung 1 (Settler) vs rung 0 (Anchor): 0/60 (3339s elapsed)
+[9/15] rung 2 (Apprentice) vs rung 0 (Anchor): 2/60 (3778s elapsed)
+[10/15] rung 3 (Journeyman) vs rung 0 (Anchor): 6/60 (4268s elapsed)
+[11/15] rung 4 (Veteran) vs rung 0 (Anchor): 12/60 (4748s elapsed)
+[12/15] rung 5 (Expert) vs rung 0 (Anchor): 19/60 (5229s elapsed)
+[13/15] rung 6 (Master) vs rung 0 (Anchor): 28/60 (5765s elapsed)
+[14/15] rung 7 (Grandmaster) vs rung 0 (Anchor): 37/60 (6291s elapsed)
+[15/15] rung 8 (The Engine) vs rung 0 (Anchor): 40/60 (8504s elapsed)
+wrote data\ladder_calibration.json
+  1. Settler: 687 -> 545
+  2. Apprentice: 787 -> 657
+  3. Journeyman: 887 -> 831
+  4. Veteran: 987 -> 917
+  5. Expert: 1087 -> 1039
+  6. Master: 1187 -> 1188
+  7. Grandmaster: 1287 -> 1260
+  8. The Engine: 1387 -> 1358
+===== 2026-10-07 14:30:56 finished with exit code 0

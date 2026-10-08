@@ -1,0 +1,15 @@
+===== 2026-10-07 11:25:48 wrapper pid 31028: awake held, below-normal priority=True
+===== command: D:/Madhav/CatanTrainer/.venv/Scripts/python.exe -u dial_probe.py --configs gen7:64x3:e0 gen7:32x2:e0 gen7:16x2:e0 gen7:8x1:e0 gen7:32x2:e0.1 gen7:32x2:e0.2 gen7:32x2:e0.3 gen7:32x2:e0.45 gen7:32x2:e0.65 gen7:32x2:e0.85 --games 80 --seed-offset 93000000 --ref heuristic
+10 configs x 80 games vs heuristic (=1149.4), seeds from 93000000
+[1/10] gen7:64x3:e0            54/80 = 67.5%  Elo  1276.4 (1196..1357)  730s  (730s total)
+[2/10] gen7:32x2:e0            58/80 = 72.5%  Elo  1317.8 (1233..1402)  293s  (1022s total)
+[3/10] gen7:16x2:e0            53/80 = 66.2%  Elo  1266.6 (1187..1346)  365s  (1387s total)
+[4/10] gen7:8x1:e0             54/80 = 67.5%  Elo  1276.4 (1196..1357)  63s  (1450s total)
+[5/10] gen7:32x2:e0.1          40/80 = 50.0%  Elo  1149.4 (1074..1225)  237s  (1687s total)
+[6/10] gen7:32x2:e0.2          37/80 = 46.2%  Elo  1123.3 (1048..1199)  222s  (1909s total)
+[7/10] gen7:32x2:e0.3          22/80 = 27.5%  Elo   981.0 (897..1065)  204s  (2113s total)
+[8/10] gen7:32x2:e0.45         11/80 = 13.8%  Elo   830.4 (722..939)  145s  (2258s total)
+[9/10] gen7:32x2:e0.65          1/80 =  1.2%  Elo   390.3 (230..693)  75s  (2333s total)
+[10/10] gen7:32x2:e0.85          0/80 =  0.0%  Elo   229.9 (230..622)  34s  (2367s total)
+done
+===== 2026-10-07 12:05:15 finished with exit code 0

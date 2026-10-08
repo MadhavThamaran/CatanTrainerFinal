@@ -8,6 +8,8 @@ import random
 import threading
 import time
 
+import pytest
+
 from engine import apply_action, legal_actions, new_game
 from net.codec import encode_action
 from test_play import _play_out, _svc
@@ -15,6 +17,8 @@ from trainer.actions import describe_move
 from trainer.review import ReviewService
 import trainer.play as tp
 import trainer.review as tr
+
+pytestmark = pytest.mark.usefixtures("fast_rung1")   # rung 1 = instant heuristic (see conftest)
 
 
 def _play_one_game(tmp_path, monkeypatch, seed: int) -> str:

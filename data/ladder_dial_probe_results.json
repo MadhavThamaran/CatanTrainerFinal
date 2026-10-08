@@ -1,0 +1,92 @@
+{
+ "gen7:64x3:e0": {
+  "wins": 54,
+  "games": 80,
+  "ref": "heuristic",
+  "elo": 1276.4,
+  "elo_lo": 1195.8,
+  "elo_hi": 1356.9,
+  "seconds": 730
+ },
+ "gen7:32x2:e0": {
+  "wins": 58,
+  "games": 80,
+  "ref": "heuristic",
+  "elo": 1317.8,
+  "elo_lo": 1233.4,
+  "elo_hi": 1402.2,
+  "seconds": 293
+ },
+ "gen7:16x2:e0": {
+  "wins": 53,
+  "games": 80,
+  "ref": "heuristic",
+  "elo": 1266.6,
+  "elo_lo": 1186.8,
+  "elo_hi": 1346.4,
+  "seconds": 365
+ },
+ "gen7:8x1:e0": {
+  "wins": 54,
+  "games": 80,
+  "ref": "heuristic",
+  "elo": 1276.4,
+  "elo_lo": 1195.8,
+  "elo_hi": 1356.9,
+  "seconds": 63
+ },
+ "gen7:32x2:e0.1": {
+  "wins": 40,
+  "games": 80,
+  "ref": "heuristic",
+  "elo": 1149.4,
+  "elo_lo": 1073.9,
+  "elo_hi": 1224.9,
+  "seconds": 237
+ },
+ "gen7:32x2:e0.2": {
+  "wins": 37,
+  "games": 80,
+  "ref": "heuristic",
+  "elo": 1123.3,
+  "elo_lo": 1047.5,
+  "elo_hi": 1199.0,
+  "seconds": 222
+ },
+ "gen7:32x2:e0.3": {
+  "wins": 22,
+  "games": 80,
+  "ref": "heuristic",
+  "elo": 981.0,
+  "elo_lo": 896.6,
+  "elo_hi": 1065.4,
+  "seconds": 204
+ },
+ "gen7:32x2:e0.45": {
+  "wins": 11,
+  "games": 80,
+  "ref": "heuristic",
+  "elo": 830.4,
+  "elo_lo": 721.7,
+  "elo_hi": 939.2,
+  "seconds": 145
+ },
+ "gen7:32x2:e0.65": {
+  "wins": 1,
+  "games": 80,
+  "ref": "heuristic",
+  "elo": 390.3,
+  "elo_lo": 229.9,
+  "elo_hi": 693.2,
+  "seconds": 75
+ },
+ "gen7:32x2:e0.85": {
+  "wins": 0,
+  "games": 80,
+  "ref": "heuristic",
+  "elo": 229.9,
+  "elo_lo": 229.9,
+  "elo_hi": 622.0,
+  "seconds": 34
+ }
+}

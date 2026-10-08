@@ -5,10 +5,12 @@ from .base import Agent
 from .greedy_random import GreedyRandomAgent
 from .harness import GameResult, MatchReport, evaluate, play_game
 from .heuristic import HeuristicAgent, placement_value, production_value
+from .noisy import EpsilonAgent
 from .random_agent import RandomAgent
 
 __all__ = [
     "Agent",
+    "EpsilonAgent",
     "GameResult",
     "GreedyRandomAgent",
     "HeuristicAgent",

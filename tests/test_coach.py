@@ -4,10 +4,14 @@ verdict badge, repeated checks at one decision hit the eval cache, the
 toggle works mid-game, and discards go through the same gate."""
 from __future__ import annotations
 
+import pytest
+
 from engine import Phase, Resource, legal_actions
 from search.engine import MoveEval
 
 from trainer.play import PlayService
+
+pytestmark = pytest.mark.usefixtures("fast_rung1")   # rung 1 = instant heuristic (see conftest)
 
 
 def _svc():

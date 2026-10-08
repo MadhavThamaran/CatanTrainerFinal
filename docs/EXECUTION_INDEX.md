@@ -48,8 +48,11 @@ don't re-design. Statuses as of 2026-10-06.
       login and takes `?rung=&rated=`, `/api/ladder` for the pre-game
       screen, per-user ladder state in `Ratings.ladder`. Client: rung-card
       picker, in-game rung/rated badge, unlock/Elo toast, Rematch.
-      `scripts/ladder_calibrate.py` written but NOT YET RUN (the real
-      ~8-10h measurement pass) — rungs report provisional Elo until it is.
+      v1 MEASURED 2026-10-06 (14.1 h, 720 games): the rungs spanned ~290 Elo,
+      not 800-2000 (README), so the table was re-specced 2026-10-07 as
+      strength dials (LADDER_SPEC §8): one cheap bot with a random-move rate
+      + a deeper-search top rung. v2 MEASURED 2026-10-07 (2.4 h, 900 games):
+      545-1358, an 813-Elo monotone span (README).
 - [x] **PLACEMENT_LAB_SPEC.md** — placement drills + bias analytics.
       DONE 2026-09-30: `trainer/lab.py` (`LabService`/`LabSession`, 4
       human setup decisions graded pre-move against a single-seed deep

@@ -2,7 +2,11 @@
 import random
 from pathlib import Path
 
+import pytest
+
 from trainer.play import PlayService
+
+pytestmark = pytest.mark.usefixtures("fast_rung1")   # rung 1 = instant heuristic (see conftest)
 
 
 def _svc():

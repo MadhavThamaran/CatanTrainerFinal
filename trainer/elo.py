@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import random
 
+from .ladder import migrate as _migrate_ladder
+
 USER_K = 32.0
 PUZZLE_K = 16.0
 INITIAL_USER = 1500.0
@@ -37,7 +39,9 @@ class Ratings:
         self.history: list = d.get("history", [])
         self.srs: dict = d.get("srs", {})   # pid -> {box, due, lapses, added} (SRS_SPEC)
         self.skill: dict = d.get("skill", {})   # phase -> rating (DASHBOARD_SPEC §0)
-        self.ladder: dict = d.get("ladder", {})   # play_elo + per-rung records (LADDER_SPEC)
+        # play_elo + per-rung records (LADDER_SPEC); older rung records are reset once
+        # when the rung table is re-specced (ladder.LADDER_VERSION).
+        self.ladder: dict = _migrate_ladder(d.get("ladder", {}))
         self.lessons: dict = d.get("lessons", {})   # lesson id -> drill set/run/pass state (CURRICULUM_SPEC)
 
     # --- persistence ---

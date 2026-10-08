@@ -7,7 +7,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ## Commands
 
 ```sh
-uv run pytest -q                      # full suite (~1-4min, 278 tests) — run before/after changes
+uv run pytest -q                      # full suite (~1-4min, 325 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
@@ -82,17 +82,29 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   "yours missed X" (`trainer/service.py::_explain`), and post-game review
   rows (`trainer/review.py`'s `row.why`).
 - **Bot ladder (LADDER_SPEC.md) shipped**: `trainer/ladder.py` — 8 rungs
-  (Settler..The Engine, `make_bot` resolves HeuristicAgent/raw MCTS/net
-  MCTS per rung), per-user state in `Ratings.ladder` (play-Elo K=24,
+  (Settler..The Engine, `make_bot` builds each rung's engine and wraps it
+  in `EpsilonAgent` when the rung has a random-move rate), per-user
+  state in `Ratings.ladder` (play-Elo K=24,
   W/L/stars/unlocks, `record_game` pure function). **Play mode now
   requires login** (it didn't before this). `/api/play/new?rung=&rated=`,
   `/api/ladder` for the pre-game rung-picker screen; game records gain
   `rung`/`rated`/`user_id` (the dashboard shows only your games; older
   untagged records stay visible to everyone). Coach judges at a fixed
   reference net regardless of rung (COACH_SPEC's own logic untouched).
-  Ratings are PROVISIONAL
-  (declared guesses) until `scripts/ladder_calibrate.py`'s ~8-10h
-  measurement pass is actually run — written but not yet executed.
+  v1 ratings were MEASURED 2026-10-06 (`data/ladder_v1_calibration*`; README
+  "Measured: the ladder is far flatter than declared"): the rungs spanned
+  only ~290 Elo and search depth bought almost nothing, so the table was
+  re-specced 2026-10-07 as STRENGTH DIALS (LADDER_SPEC §8): rungs 1-7 are one
+  cheap gen-7 bot (16 sims x 2) with a falling random-move rate
+  (`agents/noisy.py::EpsilonAgent`, eps 0.55 -> 0), rung 8 searches deeper
+  (160 x 4). v2 was MEASURED 2026-10-07 (`data/ladder_calibration*`, 15
+  pairs x 60 games, 2.4 h): 545 / 657 / 831 / 917 / 1039 / 1188 / 1260 / 1358,
+  an 813-Elo monotone span (README "Measured: the dials work"); the declared
+  targets 687..1387 are now only the fallback. A measured rating only
+  applies while the rung's config signature matches (an edited rung falls
+  back to its target); per-user rung records reset once on a table change
+  (`LADDER_VERSION`). The dial probe behind the table is
+  `scripts/ladder_dial_probe.py`.
 - **Placement lab (PLACEMENT_LAB_SPEC.md) shipped**: `trainer/lab.py` —
   `LabService`/`LabSession` drill the 1v1 setup snake (A-B-B-A); each of
   the human's 4 decisions (2 settlements + 2 roads) is graded BEFORE it
@@ -143,9 +155,12 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   270000/280000), mining 200000–213359, play sessions 300000–399999,
   lab drills 400000–90399999 (`trainer/lab.py` samples randomly across
   this whole span — "endless fresh boards" per spec, not a one-shot run),
-  ladder calibration 91000000–91011059 (reserved;
-  `scripts/ladder_calibrate.py`'s default offset, pair i plays
-  offset + 1000·i + game). Update this line when you consume a range.
+  ladder calibration v1 91000000–91011059 (used 2026-10-06), v2
+  92000000–92014999 (used 2026-10-07; `scripts/ladder_calibrate.py`'s default
+  offset; pair i plays offset + 1000·i + game), ladder dial probe
+  93000000–93009999 (used 2026-10-07; `scripts/ladder_dial_probe.py`'s default
+  offset; config i plays offset + 1000·i + game). Update this line when you
+  consume a range.
 - **Long runs die to battery hibernation** on macOS laptops —
   `caffeinate -is` only holds on AC. On Windows the power plan's AC
   sleep timeout does the same (3 h here) and the lid-close action can
@@ -197,5 +212,5 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
 - Explanatory strings shown to users derive ONLY from computed facts —
   no vibes (see EXPLAIN_SPEC honesty rules; same contract in lab,
   dashboard, coach specs).
-- Tests are the porting/refactor contract: 278 passing, spec-mapped
+- Tests are the porting/refactor contract: 325 passing, spec-mapped
   files per feature (`tests/test_<feature>.py`).
