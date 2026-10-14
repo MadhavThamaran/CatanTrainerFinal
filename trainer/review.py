@@ -202,6 +202,7 @@ class ReviewService:
         self._done: dict[str, bool] = {}
         self._total: dict[str, int] = {}
         self._errors: dict[str, str] = {}
+        self._owners: dict[str, int | None] = {}
 
     def _cache_path(self, game_id: str) -> Path:
         return _GAMES_DIR / f"{game_id}.review.json"
@@ -275,20 +276,23 @@ class ReviewService:
         except Exception as exc:  # noqa: BLE001 — the engine asserts legality: a stale record raises AssertionError
             return {"error": f"this game can no longer be reopened ({type(exc).__name__}: {exc})"}
 
-    def start(self, game_id: str) -> dict:
+    def start(self, game_id: str, user_id: int | None = None) -> dict:
         if not _valid_id(game_id):
             return {"error": "unknown game"}
+        record = self._load_record(game_id)
+        if record is None or not visible_to(record, user_id):
+            return {"error": "unknown game"}
+        owner = record.get("user_id")
+
         data = self._read_cache(game_id)
         if data is not None:
             self._results[game_id] = data["results"]
             self._done[game_id] = True
             self._total[game_id] = data["total"]
             self._errors.pop(game_id, None)
+            self._owners[game_id] = owner
             return {"review_id": game_id, "total": data["total"]}
 
-        record = self._load_record(game_id)
-        if record is None:
-            return {"error": "unknown game"}
         try:
             total = _count_scorable(record)
         except Exception as exc:  # noqa: BLE001 — a stale record trips the engine's legality asserts
@@ -305,6 +309,7 @@ class ReviewService:
             self._done[game_id] = False
             self._total[game_id] = total
             self._errors.pop(game_id, None)
+            self._owners[game_id] = owner
             self._running = game_id
             t = threading.Thread(
                 target=self._run, args=(game_id, record), daemon=True
@@ -312,9 +317,10 @@ class ReviewService:
             t.start()
         return {"review_id": game_id, "total": total}
 
-    def poll(self, review_id: str, frm: int) -> dict:
+    def poll(self, review_id: str, frm: int, user_id: int | None = None) -> dict:
         results = self._results.get(review_id)
-        if results is None:
+        owner = self._owners.get(review_id)
+        if results is None or not (owner is None or user_id is None or owner == user_id):
             return {"error": "unknown review"}
         out = {
             "done": self._done.get(review_id, False),

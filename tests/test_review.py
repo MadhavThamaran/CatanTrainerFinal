@@ -406,6 +406,26 @@ def test_open_game_is_the_players_own_games_only(tmp_path, monkeypatch):
     assert review.open_game("g0-nothere", 1) == {"error": "unknown game"}
 
 
+def test_start_and_poll_require_the_players_own_game(tmp_path, monkeypatch):
+    sid = _play_one_game(tmp_path, monkeypatch, seed=301_124)
+    path = tmp_path / f"{sid}.json"
+    record = json.loads(path.read_text())
+    record["user_id"] = 1
+    path.write_text(json.dumps(record))
+    review = ReviewService(sims=16, dets=2)
+
+    assert review.start(sid, 2) == {"error": "unknown game"}       # not theirs: not even confirmed to exist
+    start = review.start(sid, 1)
+    assert "error" not in start
+    assert review.poll(start["review_id"], 0, 2) == {"error": "unknown review"}  # can't piggyback another's review
+    assert "error" not in review.poll(start["review_id"], 0, 1)
+    _drain(review, start["review_id"])
+
+    del record["user_id"]                                          # written before records carried an owner
+    path.write_text(json.dumps(record))
+    assert "error" not in review.start(sid, 1) and "error" not in review.start(sid, 2)
+
+
 def test_open_game_reports_a_record_that_no_longer_replays(tmp_path, monkeypatch):
     sid = _play_one_game(tmp_path, monkeypatch, seed=301_121)
     path = tmp_path / f"{sid}.json"
@@ -462,11 +482,41 @@ def test_games_routes_list_and_reopen_only_the_players_games(tmp_path, monkeypat
         release = threading.Event()
         real_run = review._run
         monkeypatch.setattr(review, "_run", lambda rid, rec: (release.wait(timeout=5), real_run(rid, rec)))
-        assert _request(port, "POST", "/api/review/start", {"game_id": sid})[0] == 200
+        assert _request(port, "POST", "/api/review/start", {"game_id": sid}, cookie=alice)[0] == 200
         assert _request(port, "GET", "/api/games", cookie=alice)[1]["review_running"] == sid
         release.set()
         _drain(review, sid)
         assert _request(port, "GET", "/api/games", cookie=alice)[1]["games"][0]["reviewed"] is True
+    finally:
+        server.shutdown()
+
+
+def test_review_start_and_poll_routes_require_login_and_ownership(tmp_path, monkeypatch):
+    play_dir = tmp_path / "play"
+    play_dir.mkdir()
+    sid, _ = _play_one_game_view(play_dir, monkeypatch, seed=301_126)
+    review = ReviewService(sims=16, dets=2)
+    svc, server, port = _games_server(tmp_path, review)
+    try:
+        assert _request(port, "POST", "/api/review/start", {"game_id": sid})[0] == 401        # login required
+        assert _request(port, "GET", f"/api/review/poll?id={sid}&from=0")[0] == 401
+
+        _, _, alice = _request(port, "POST", "/api/signup", {"name": "alice", "password": "hunter2pass"})
+        _, _, bob = _request(port, "POST", "/api/signup", {"name": "bobby", "password": "hunter2pass"})
+        path = play_dir / f"{sid}.json"
+        record = json.loads(path.read_text())
+        record["user_id"] = svc.store.get_user("alice")["id"]
+        path.write_text(json.dumps(record))
+
+        assert _request(port, "POST", "/api/review/start", {"game_id": sid}, cookie=bob)[0] == 404  # someone else's
+        status, out, _ = _request(port, "POST", "/api/review/start", {"game_id": sid}, cookie=alice)
+        assert status == 200
+        review_id = out["review_id"]
+
+        assert _request(port, "GET", f"/api/review/poll?id={review_id}&from=0")[0] == 401
+        assert _request(port, "GET", f"/api/review/poll?id={review_id}&from=0", cookie=bob)[0] == 404
+        assert _request(port, "GET", f"/api/review/poll?id={review_id}&from=0", cookie=alice)[0] == 200
+        _drain(review, review_id)
     finally:
         server.shutdown()
 

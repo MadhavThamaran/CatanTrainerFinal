@@ -186,5 +186,8 @@ screen play mode opens on (the Game log card is behind it until a game starts).
   through `poll`, writes no cache and releases the single-flight lock. Before, the dead thread left every later review
   refused with 409 until a restart. The cache is now written atomically, and a torn one is recomputed.
 - Game ids are validated (`[A-Za-z0-9_-]{1,64}`) before they become part of a file path.
-- Not done: `/api/review/start` and `/api/review/poll` still accept any game id with no login or ownership check
-  (the list and reopen routes do check both). Add that before hosting play (HOSTING).
+- **Login + ownership closed (2026-10-14)**: `/api/review/start` and `/api/review/poll` now require login and
+  check the same `visible_to` rule as `/api/games*` — `start` loads the record first (even on a cache hit) and
+  refuses with `{"error": "unknown game"}` for someone else's game; `ReviewService` remembers each review's owner
+  (`user_id` at the time it was started) so `poll` refuses a review it didn't start, the same "unknown" shape so
+  nothing confirms existence. Records written before `user_id` existed stay visible to everyone, as elsewhere.

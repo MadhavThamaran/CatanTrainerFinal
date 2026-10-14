@@ -170,9 +170,13 @@ def make_handler(
                     if review is None:
                         self._json({"error": "review not available on this deployment"}, 404)
                         return
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
                     qs = parse_qs(query)
                     result = review.poll(
-                        qs.get("id", [""])[0], int(qs.get("from", ["0"])[0])
+                        qs.get("id", [""])[0], int(qs.get("from", ["0"])[0]), uid
                     )
                     self._json(result, 404 if "error" in result else 200)
                 elif path == "/api/games" or path.startswith("/api/games/"):
@@ -270,7 +274,11 @@ def make_handler(
                     if review is None:
                         self._json({"error": "review not available on this deployment"}, 404)
                         return
-                    result = review.start(req["game_id"])
+                    uid = _user_id(self)
+                    if uid is None:
+                        self._json({"error": "unauthenticated"}, 401)
+                        return
+                    result = review.start(req["game_id"], uid)
                     self._json(result, result.pop("status", 404) if "error" in result else 200)
                 elif self.path == "/api/lab/act":
                     if lab is None:

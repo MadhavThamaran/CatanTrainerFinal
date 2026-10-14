@@ -54,8 +54,9 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   Past games reopen from the opponent screen's Recent games list
   (`/api/games`, `/api/games/<id>`: a finished play screen rebuilt by
   replaying the record, per-user); the worker reports failures through
-  `poll` instead of wedging the single-flight lock. `/api/review/*` still
-  take any game id with no login/ownership check (a hosting prerequisite).
+  `poll` instead of wedging the single-flight lock. `/api/review/start|poll`
+  now require login and the same ownership check as `/api/games*` (fixed
+  2026-10-14, REVIEW_SPEC §9).
 - **SRS (SRS_SPEC.md) shipped**: `trainer/srs.py` — Leitner boxes on
   rated trainer misses (<75 pts), stored in the same per-user ratings
   blob. `/api/srs/summary`, `/api/srs/next`, `srs:true` on `/api/submit`
