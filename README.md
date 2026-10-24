@@ -1,19 +1,53 @@
 # catan-trainer
 
-A tactics trainer for **1v1 Colonist-variant Catan** (15 VP, Balanced Dice, Friendly
-Robber, no player-to-player trading) — the Catan analogue of the chess.com puzzle
-trainer. See **`PLAN.md`** for the full roadmap and the ML/search recommendation;
-this repo currently contains **Stages 1–4 of that plan: the rules engine core, the
-board generator, the heuristic baseline agents, and the determinized-MCTS move
-evaluator** (the product primitive: ranked per-move Q-values).
+### ▶ [Play it live: catantrainerfinal.onrender.com](https://catantrainerfinal.onrender.com)
+
+A tactics trainer + engine for **1v1 Colonist-variant Catan** (15 VP, Balanced
+Dice, Friendly Robber, no player-to-player trading) — the Catan analogue of
+the chess.com puzzle trainer: an AlphaZero-style engine mines puzzles from
+its own self-play and plays as a bot across an 8-rung ladder. See
+**`PLAN.md`** for the original roadmap and ML/search recommendation; every
+stage it describes has since shipped, plus a full product layer on top
+(accounts, coaching, post-game review, spaced repetition, a weakness
+dashboard, lesson tracks, a placement lab, and an analysis board) — see
+"Current state" below and `docs/EXECUTION_INDEX.md` for the up-to-date
+status of every feature.
 
 **Moving machines / what's next:** `docs/HANDOFF.md` (leave-this-laptop
 checklist + git push), `docs/HOSTING.md` (public deployment with
-accounts), `docs/ROADMAP_V2.md` (bot + product plans with measured
+accounts), `docs/EXECUTION_INDEX.md` (dependency-ordered status of every
+feature spec), `docs/ROADMAP_V2.md` (bot + product plans with measured
 context).
 
 The authoritative ruleset lives in `docs/`:
 `docs/rules.md` · `docs/1v1_Colonist_Inspired_Spec.md` · `docs/balanced_die_rules.md`
+
+## Current state (2026-10-24)
+
+- **Hosted and live** at https://catantrainerfinal.onrender.com (Render free
+  tier + Neon Postgres) with accounts (login required for play mode), a
+  per-user puzzle/play Elo, and everything below served from one process.
+- **Champion bot: `checkpoints/gen7.pt`** — 75/100 vs the raw search engine
+  (95% CI 65.7–82.5%), the strongest checkpoint so far across nine
+  generations of self-play (gen-8 and gen-9 both failed to unseat it; see
+  "The policy/value net" below for the full measured arc).
+- **Puzzles: `data/puzzles_v5.jsonl`**, 3,413 net-labeled positions across
+  placement/robber/midgame/devcard/trade/endgame, served by the trainer.
+- **Bot ladder**: 8 calibrated rungs (Settler → The Engine) spanning a
+  measured 545–1358 Elo (813-Elo monotone span), play-Elo tracked per rung.
+- **Full product layer shipped**: post-game review (chess.com-style report
+  card), pre-move coach mode, a Leitner spaced-repetition queue, a weakness
+  dashboard (Form/Skills/Leaks/Cost), six guided lesson tracks, a placement
+  lab with bias analytics, and an analysis board with forceable dice/steals
+  and an engine-lines tree. Each has a full spec in `docs/*_SPEC.md`; see
+  `CLAUDE.md`'s "Current state" section for the as-built details of each.
+- **Next lever**: two consecutive training-turn non-promotions (gen-8,
+  gen-9) mean the self-play sims dial is exhausted on this hardware — the
+  next real strength gain needs a regime change (engine port for 10× cheaper
+  self-play, true GPU batching, or KataGo-style target tricks), tracked as
+  `docs/RUST_PORT_SPEC.md`. On the product side, only difficulty
+  recalibration against real hosted attempts (`ROADMAP_V2.md` §B1) remains
+  open; every other feature spec in `docs/EXECUTION_INDEX.md` has shipped.
 
 ## Layout
 
@@ -43,16 +77,37 @@ search/               Stage 4: the move evaluator (product primitive)
   determinize.py      sample hidden worlds consistent with the viewer's info set
   belief.py           CardTracker: exact opponent-hand inference (no-trade variant)
   value.py            static win-prob leaf evaluator
+net/                  Stage 5: AlphaZero-style policy/value net + flywheel
+  encode.py           871-feature actor-perspective encoder
+  codec.py            370-way flat action codec (discards excluded)
+  model.py            residual-MLP / graph (GNN) policy-value nets
+  selfplay.py         parallel self-play generation (visit targets, z/rootQ blend)
+  train.py            python -m net.train --data ... --out checkpoints/genN.pt
+  evaluator.py        NetEvaluator (+ batched lockstep leaf evaluation)
 puzzles/              Stage 6: puzzle mining, labeling, scoring
   schema.py           Puzzle/PuzzleMove + JSONL (codec-id move keys)
-  mining.py           candidates from engine self-play (placement/robber/midgame)
-  labeling.py         deep multi-seed labeling + admission criteria
+  mining.py           candidates from engine/net self-play (6 tags incl. endgame/devcard/trade)
+  labeling.py         deep multi-seed labeling + admission criteria (raw or --net)
   scoring.py          regret -> points table (100/75/40/10/0/-25, tie eps)
-  pipeline.py         python -m puzzles.pipeline --games N --out set.jsonl
+  explain.py          move_facts/render — facts-only explanation sentences
+  pipeline.py         python -m puzzles.pipeline --games N --net CKPT --out set.jsonl
+trainer/              Stage 7+: stdlib HTTP app — puzzles, play mode, full product layer
+  server.py           python -m trainer.server — routes + CLI flags (--no-play, --review-sims, ...)
+  service.py          puzzle trainer: selection, submit, puzzle-Elo, explanations
+  store.py / auth.py  accounts: Store (Json/Pg), scrypt password hashing, signed cookies
+  play.py / ladder.py live 1v1 vs the bot ladder; 8 calibrated strength-dial rungs
+  review.py           post-game review worker (deep re-score, win-prob graph)
+  srs.py              Leitner spaced-repetition queue over rated misses
+  dashboard.py        Form/Skills/Leaks/Cost weakness dashboard
+  lab.py              placement-drill lab + bias analytics (own data, Elo-isolated)
+  analysis.py         analysis board: forced dice/steals/draws, engine-lines tree
+  curriculum.py       six lesson tracks loaded from content/lessons/*.md
+  static/index.html   single-page client (board SVG, all app modes)
+content/lessons/      curriculum track content (frontmatter + paged markdown)
 examples/random_game.py        full seeded game with a build-greedy random agent
 examples/benchmark.py          heuristic vs random/greedy win-rate report
 examples/strength_benchmark.py MCTS vs heuristic (M4 exit criterion)
-tests/                pytest suite (spec §16 tests + agents + search)
+tests/                pytest suite (spec §16 tests + agents + search + every trainer feature)
 ```
 
 ## Run it
@@ -60,13 +115,20 @@ tests/                pytest suite (spec §16 tests + agents + search)
 Requires [uv](https://docs.astral.sh/uv/) (it provisions Python 3.12 automatically):
 
 ```sh
-uv run pytest                             # test suite
+uv run pytest -q                      # full suite (~1-4min, 387 tests)
+uv run pytest -m slow                 # strength tests (minutes)
+uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m examples.random_game 0   # play a full seeded game
 uv run python -m examples.benchmark 60    # heuristic vs random win rate
 ```
 
-Current test status: **70 passed** in ~3s (plus slow-marked strength tests:
-`uv run pytest -m slow`). Example games run to a 15-VP winner.
+Engine/search/agents are stdlib-only; `net/` needs torch (the `play` extra,
+or `dev` group for local work); trainer serving needs numpy (a real base
+dependency) plus psycopg when `DATABASE_URL` is set, but no torch unless
+play mode is on (`--no-play` disables it, as the Render deploy does).
+
+Current test status: **387 passed** (plus slow-marked strength tests:
+`uv run pytest -m slow`, minutes). Example games run to a 15-VP winner.
 
 Measured strength ladder (alternating seats, real runs):
 - **Heuristic vs uniform random: 400/400 (100%)**, every win by reaching 15 VP;
@@ -628,10 +690,10 @@ from the gap (real difficulty comes from puzzle-Elo in M7), and a one-line
 template explanation (full explanations are M8). Mining seeds live at
 200,000+ — disjoint from net-training (0+) and gate (100,000+) ranges.
 
-## The trainer app (Stage 7 / M7)
+## The trainer app (Stage 7 / M7) and the product layer built on top
 
 ```sh
-uv run python -m trainer.server --puzzles data/puzzles_v1.jsonl
+uv run python -m trainer.server --puzzles data/puzzles_v5.jsonl
 # open http://localhost:8321
 ```
 
@@ -645,18 +707,61 @@ submit with the full ranked table + explanation, and **puzzle-Elo**: user
 and puzzles share a rating pool (K=32/16, first attempt rated), puzzles
 start from the gap-based difficulty proxy and converge to measured
 difficulty. Selection prefers unseen puzzles near the user's rating with
-the PLAN's 40% placement mixture. State persists in
-`data/trainer_state.json`. Zero engine work at request time.
+the PLAN's 40% placement mixture. Zero engine work at request time.
 
-Content: `data/puzzles_v1.jsonl` — 129 puzzles (96 midgame / 15 placement /
-18 robber) from 150 mining games. Regenerate or extend with
-`python -m puzzles.pipeline`; relabel with the net engine post-gen-2.
+Content: `data/puzzles_v5.jsonl` — **3,413 net-labeled puzzles** (812
+placement, 1,394 robber, 371 midgame, 337 devcard, 332 trade, 167 endgame),
+mined from gen-7-guided self-play (deep road labels from birth). Regenerate
+or extend with `python -m puzzles.pipeline --net checkpoints/gen7.pt`.
 Before promoting any new labeling engine, audit label churn with
-`uv run python scripts/relabel_check.py data/puzzles_v1.jsonl` (baseline:
-10/10 stable under the current engine; changed best-moves must be reviewed,
-never silently accepted).
+`uv run python scripts/relabel_check.py` (changed best-moves must be
+reviewed, never silently accepted — see `data/relabel_audit_gen6.txt` for
+the audit that justified the v1 → v3 wholesale replacement).
 
-## Next (per PLAN.md)
+On top of the puzzle trainer, everything below is **live and shipped** —
+each has a full spec (`docs/*_SPEC.md`) with the as-built notes, and
+`CLAUDE.md`'s "Current state" section has the file-level detail:
 
-Gen-2 flywheel training + gate (net-guided self-play data generating now);
-relabel puzzles with the gated engine; M8 explanations.
+- **Accounts & hosting** (`HOSTING.md`) — login/signup, scrypt password
+  hashes, signed cookies, per-user ratings; `Store` abstracts `JsonStore`
+  (local) and `PgStore` (Neon Postgres on Render). Live at
+  https://catantrainerfinal.onrender.com.
+- **Bot ladder** (`LADDER_SPEC.md`) — play a live 1v1 against 8 calibrated
+  strength-dial rungs, Settler through The Engine (545–1358 measured Elo);
+  see "Play mode: the bot ladder" above.
+- **Coach mode** (`COACH_SPEC.md`) — every human play-mode move is gated
+  through a coach `MCTSEngine` judged from your own information set; a move
+  over the severity threshold bounces (state unchanged) with a hint before
+  you can "play it anyway." Rated games have no coach.
+- **Post-game review** (`REVIEW_SPEC.md`) — a chess.com-style report card
+  after any game: accuracy score, verdict chips, a win-probability graph,
+  click-a-move board replay against the engine's preferred line. Past games
+  reopen from a Recent games list and re-review from cache.
+- **Spaced repetition** (`SRS_SPEC.md`) — a Leitner queue over your rated
+  puzzle misses (`🔁 Review (N)`), scored for display but Elo-isolated from
+  the rated pool.
+- **Weakness dashboard** (`DASHBOARD_SPEC.md`) — Form/Skills/Leaks/Cost
+  cards aggregating per-skill Elo, play-mode history, coach overrides, and
+  lab bias statements into concrete practice recommendations.
+- **Curriculum** (`CURRICULUM_SPEC.md`) — six guided lesson tracks
+  (`content/lessons/`), each an explainer plus an 8-puzzle unrated drill
+  set with a pass bar.
+- **Placement lab** (`PLACEMENT_LAB_SPEC.md`) — endless setup-snake drills
+  (`🧪 Placement lab`) graded move-by-move with bias analytics over your
+  settlement picks, structurally isolated from puzzle-Elo (own data file,
+  no `Store`/`Ratings` coupling).
+- **Analysis board** (`ANALYSIS_SPEC.md`) — "🔬 Analyze" any puzzle result
+  or review row: force specific dice rolls/steals/draws, branch into an
+  engine-lines tree with real `DicePolicy` odds, see both hands revealed.
+
+## Next
+
+Two consecutive training-turn non-promotions (gen-8, gen-9 vs. champion
+gen-7) mean the self-play sims dial is exhausted at this net size/data
+volume on this hardware — see "The policy/value net" above and
+`docs/GEN9_RUNBOOK.md`. The next real strength gain needs a regime change:
+an engine port for ~10× cheaper self-play (`docs/RUST_PORT_SPEC.md`), true
+GPU batching, or KataGo-style target tricks. On the product side every
+feature spec in `docs/EXECUTION_INDEX.md` has shipped; the one open item is
+difficulty recalibration against real hosted attempts once there's enough
+usage data (`docs/ROADMAP_V2.md` §B1).
