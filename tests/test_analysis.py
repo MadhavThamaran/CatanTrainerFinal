@@ -266,3 +266,35 @@ def test_engine_runs_exact_perfect_info_determinization(tmp_path, monkeypatch):
     res = svc.new_session("game", "g7")
     session = svc._sessions[res["analysis_id"]]
     assert session.engine.exact is True
+
+
+# --- viewer perspective stays pinned across a turn boundary ---
+
+
+def test_board_perspective_does_not_flip_when_the_turn_passes(tmp_path, monkeypatch):
+    """Rendering perspective ("mine"/you vs opponent) must stay pinned to
+    whoever was to act in the root position for the whole session. Deriving
+    it from state.player_to_act() per node instead made a player's own
+    just-placed piece render in the opponent's color the instant a setup
+    turn (or any turn) ended and the mover changed."""
+    import trainer.analysis as am
+
+    monkeypatch.setattr(am, "_GAMES_DIR", tmp_path)
+    _write_game_record(tmp_path / "g8.json", seed=301_508, n_actions=0)
+    svc = _svc()
+    res = svc.new_session("game", "g8")
+    aid = res["analysis_id"]
+    root = res["root"]
+    assert root["moves"][0]["category"] == "setup_settlement"
+
+    settle = root["moves"][0]
+    vkey = str(settle["target"])
+    node1 = svc.apply(aid, "root", settle["codec_id"])["node"]
+    assert node1["board"]["buildings"][vkey]["mine"] is True
+
+    road = next(m for m in node1["moves"] if m["category"] == "setup_road")
+    node2 = svc.apply(aid, node1["node"], road["codec_id"])["node"]
+    # The incident setup road ends player 0's turn, handing the mover to
+    # player 1 — but the settlement player 0 just placed must still be
+    # "mine" from the session's fixed (root) viewpoint.
+    assert node2["board"]["buildings"][vkey]["mine"] is True

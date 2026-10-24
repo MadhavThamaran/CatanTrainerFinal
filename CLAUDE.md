@@ -9,6 +9,7 @@ Catan": an AlphaZero-style engine generates puzzles and plays as a bot.
 ```sh
 uv run pytest -q                      # full suite (~1-4min, 387 tests) — run before/after changes
 uv run pytest -m slow                 # strength tests (minutes)
+npm test                              # client (trainer/static/index.html) regression tests
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m puzzles.pipeline --games N --net checkpoints/gen7.pt --out X.jsonl
 uv run python -m net.selfplay --games N --sims S --net CKPT --seed-offset F --out X.npz
@@ -214,6 +215,28 @@ Q-values`) → `net/` (GNN policy/value, AlphaZero self-play flywheel) →
   raw engine" context numbers in README/PLAN noisier than reported. Fixed
   2026-09-29; guarded by
   `tests/test_agents.py::test_robber_score_finds_buildings_on_the_targeted_hex`.
+- **The Python suite can't see bugs that live entirely in
+  `trainer/static/index.html`'s client JS** — two were found by hand in
+  one session (2026-10-24): the analysis board's engine-lines list routed
+  every click through a chance-forcing popup meant only for manual board
+  clicks, and (a mixed client/server bug) the board's "mine"/you-vs-
+  opponent color flipped the instant a turn passed because perspective was
+  recomputed per node instead of pinned once (server fix in
+  `trainer/analysis.py`, guarded by `tests/test_analysis.py`). Client-only
+  logic now has its own suite: `tests/client/` (Node + jsdom, `npm test`)
+  boots the REAL `index.html` via `jsdom`'s `beforeParse` hook (injects a
+  mocked `fetch` before the page's own inline `<script>` runs
+  `checkAuthAndStart()`), then drives it exactly like a browser — real
+  clicks, real DOM assertions — with zero changes to the shipped file,
+  so there's no test/prod drift. Top-level `let`/`const` in that script
+  (`PZ`, `ANALYSIS_*`, …) are NOT `window` properties (only `function`
+  declarations are) — tests observe behavior via DOM/fetch-log, never by
+  reaching into app-internal state. A fixture for a `describe_move()`-
+  shaped dict (`codec_id`/`kind`/`target`/`label`/`category` —
+  `trainer/actions.py::_mk`) must include every field the real server
+  sends: an incomplete fixture (missing `category`) once made a
+  regression test pass against the UNFIXED buggy code, silently testing
+  nothing.
 
 ## Conventions
 

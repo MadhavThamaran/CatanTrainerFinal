@@ -1043,6 +1043,17 @@ async function showLadderScreen() {
   document.getElementById("recentgames").style.display = "none";   // never show last visit's list (stale badges)
   const r = await fetch("/api/ladder");
   if (r.status === 401) { showAuthCard(); return; }
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    document.getElementById("ladderelo").textContent = "";
+    document.getElementById("laddercards").innerHTML =
+      `<p>${escHtml(body.error || "Play mode isn't available on this deployment.")}</p>`;
+    document.getElementById("ladderoptions").style.display = "none";
+    document.getElementById("ladderstart").style.display = "none";
+    return;
+  }
+  document.getElementById("ladderoptions").style.display = "";
+  document.getElementById("ladderstart").style.display = "";
   LADDER_DATA = await r.json();
   if (LADDER_RUNG && !LADDER_DATA.rungs.find(x => x.number === LADDER_RUNG && x.unlocked)) {
     LADDER_RUNG = null;   // stale/locked selection from a previous account
@@ -1635,7 +1646,10 @@ function renderAnalysisLines(lines, forNode) {
       `<span class="linelabel">${emojify(line.label)}</span>` +
       `<span class="lineqbar"><span class="lineqfill" style="width:${Math.round(line.q * 100)}%"></span></span>` +
       `<span class="lineq">${Math.round(line.q * 100)}%</span>`;
-    row.onclick = () => analysisStage(line);
+    // Engine lines are a one-click "play this" like a chess engine move:
+    // apply with real randomness, never the chance-forcing picker (that's
+    // reserved for intentionally clicking a chance target on the board).
+    row.onclick = () => analysisApply(line, null);
     box.appendChild(row);
   }
 }

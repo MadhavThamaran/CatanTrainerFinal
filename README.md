@@ -117,6 +117,7 @@ Requires [uv](https://docs.astral.sh/uv/) (it provisions Python 3.12 automatical
 ```sh
 uv run pytest -q                      # full suite (~1-4min, 387 tests)
 uv run pytest -m slow                 # strength tests (minutes)
+npm test                              # client (trainer/static/index.html) regression tests
 uv run python -m trainer.server       # the web app on :8321 (trainer + play mode + review)
 uv run python -m examples.random_game 0   # play a full seeded game
 uv run python -m examples.benchmark 60    # heuristic vs random win rate
@@ -126,9 +127,14 @@ Engine/search/agents are stdlib-only; `net/` needs torch (the `play` extra,
 or `dev` group for local work); trainer serving needs numpy (a real base
 dependency) plus psycopg when `DATABASE_URL` is set, but no torch unless
 play mode is on (`--no-play` disables it, as the Render deploy does).
+`npm test` needs Node (`npm install` once for the `jsdom` dev dependency)
+and runs `tests/client/` — regressions for bugs that live purely in the
+client's JS, which the Python suite structurally can't see; see CLAUDE.md
+for why that suite exists and how it boots the real `index.html`.
 
 Current test status: **387 passed** (plus slow-marked strength tests:
-`uv run pytest -m slow`, minutes). Example games run to a 15-VP winner.
+`uv run pytest -m slow`, minutes) and **5 client-side tests passing**
+(`npm test`). Example games run to a 15-VP winner.
 
 Measured strength ladder (alternating seats, real runs):
 - **Heuristic vs uniform random: 400/400 (100%)**, every win by reaching 15 VP;

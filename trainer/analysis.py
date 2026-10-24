@@ -83,6 +83,13 @@ class AnalysisSession:
         self.label: dict[str, str] = {"root": "start"}
         self.evals: dict[str, list[dict]] = {}
         self._nonce = 0
+        # The board/"you"-vs-"opponent" perspective is pinned to whoever was
+        # to act in the root position, for the whole session — NOT
+        # recomputed as `state.player_to_act()` per node. Setup and
+        # turn-ending moves flip the mover every node; re-deriving the
+        # viewer from the mover made the human's own just-placed pieces
+        # render in the opponent's color the instant the turn passed.
+        self.viewer = root_state.player_to_act()
         # exact=True (ANALYSIS_SPEC §4): these states are already perfect,
         # so the K "worlds" differ only in search randomness, not hidden info.
         self.engine = MCTSEngine(
@@ -92,7 +99,7 @@ class AnalysisSession:
 
     def node_view(self, node_id: str) -> dict:
         state = self.states[node_id]
-        actor = state.player_to_act()
+        mover = state.player_to_act()  # whoever actually decides at this node
         over = state.phase is Phase.GAME_OVER
         return {
             "analysis_id": self.aid,
@@ -104,17 +111,19 @@ class AnalysisSession:
                 else "p0" if state.winner == 0 else "p1" if state.winner == 1 else "draw"
             ),
             "layout": LAYOUT,
-            "board": board_state(state, actor),
-            "context": context(state, actor),
-            "revealed": _revealed(state, actor),
+            # Rendering perspective stays fixed to the session's viewer, not
+            # the mover, so "you"/blue never flips mid-line.
+            "board": board_state(state, self.viewer),
+            "context": context(state, self.viewer),
+            "revealed": _revealed(state, self.viewer),
             # ANALYSIS_SPEC §3: the chance picker's odds — the simulator's
-            # OWN adjusted distribution, not a generic 2d6 assumption.
+            # OWN adjusted distribution for whoever is about to roll.
             "dice_probs": None if over else {
-                t: round(p, 4) for t, p in state.dice.probabilities(actor).items()
+                t: round(p, 4) for t, p in state.dice.probabilities(mover).items()
             },
             "moves": [] if over else sorted(
                 (
-                    describe_move(encode_action(a), state, actor)
+                    describe_move(encode_action(a), state, mover)
                     for a in legal_actions(state)
                     if encode_action(a) is not None
                 ),

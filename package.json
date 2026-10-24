@@ -1,0 +1,11 @@
+{
+  "name": "catan-trainer-client-tests",
+  "private": true,
+  "description": "Regression tests for trainer/static/index.html's client-side JS. The engine/server suite is uv run pytest -q; this is the client half.",
+  "scripts": {
+    "test": "node --test tests/client"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1"
+  }
+}
